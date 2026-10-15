@@ -596,6 +596,9 @@ function carnetBox(rid){
     <div class="stars" role="group" aria-label="Ma note">${[1,2,3,4,5].map(i => `<button type="button" data-star="${i}" aria-pressed="${i <= c.note}" aria-label="${i} sur 5">${i <= c.note ? "★" : "☆"}</button>`).join("")}<span class="status">Ma note</span></div>
     <label class="eyebrow" for="c-comment">Mon commentaire perso</label>
     <textarea class="field small" id="c-comment" placeholder="Ex. : un peu moins de piment la prochaine fois">${esc(c.comment)}</textarea>
+    <span class="status">✓ Enregistré automatiquement sur ce téléphone. Ce commentaire reste privé.</span>
+    <a class="avis" href="${esc(avisLink((platInfo(state.plat) || [0,""])[1], state.regime))}" target="_blank" rel="noopener">Envoyer mon avis à Djann</a>
+    <span class="status">Ouvre le formulaire d'avis, avec la recette et la version déjà remplies.</span>
   </div>`;
 }
 
@@ -786,8 +789,7 @@ function renderPlat(){
     <section class="sect noprint"><label class="eyebrow" for="w-slot">Pour quand ?</label>
       <select class="field" id="w-slot">${slotOptions(state.slot || "", "Pas de jour précis")}</select>
       <button class="cta" type="button" data-add="${esc(rid)}">Ajouter au menu et aux courses</button>
-      <a class="avis" href="${esc(avisLink(name, state.regime))}" target="_blank" rel="noopener">Tu l'as cuisinée ? Donne ton avis</a>
-      <span class="status">Ouvre le formulaire d'avis, avec la recette et la version déjà remplies.</span></section>`;
+</section>`;
   }
   const del = custom && canDelete(customs.find(x => "u:" + x.id === k)) ? `<section class="sect noprint"><div class="bar">
       ${state.confirmDel ? `<div class="confirm"><span>Supprimer « ${esc(name)} » et toutes ses versions ?</span><button class="ghost danger" type="button" data-act="del-yes">Oui, supprimer</button><button class="ghost" type="button" data-act="del-no">Annuler</button></div>`
