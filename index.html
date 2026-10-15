@@ -1,0 +1,806 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<title>Recettes en famille</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<style>
+/* Layout : appli à deux onglets (Plats / Courses). Fiche plat = régime + nombre de personnes + ingrédients recalculés. Liste de courses rangée par rayon. */
+:root{
+  --bg:#F6F8F3; --surface:#FFFFFF; --ink:#1B271F; --muted:#5B6B60; --line:#DCE3D6;
+  --accent:#1E6A49; --accent-ink:#FFFFFF; --accent-soft:#DDEDE3;
+  --spice:#C9820F; --spice-soft:#FBEED5; --danger:#B3402E;
+  --plate:#FFFFFF; --plate-rim:#EDF1E9; --band:#1E6A49; --band-ink:#FFFFFF; --band-soft:#F4C766;
+  --f-display:"Bricolage Grotesque","Trebuchet MS","Segoe UI",sans-serif;
+  --f-body:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --radius:14px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#111713; --surface:#19221C; --ink:#E6EEE7; --muted:#9BAB9F; --line:#2A362E;
+  --accent:#62C597; --accent-ink:#0C1A12; --accent-soft:#1F3328;
+  --spice:#EDB04C; --spice-soft:#36290F; --danger:#E7826F;
+  --plate:#2B372F; --plate-rim:#222C25; --band:#1D3B2C; --band-ink:#EAF4EC; --band-soft:#EDB04C; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#111713; --surface:#19221C; --ink:#E6EEE7; --muted:#9BAB9F; --line:#2A362E;
+  --accent:#62C597; --accent-ink:#0C1A12; --accent-soft:#1F3328;
+  --spice:#EDB04C; --spice-soft:#36290F; --danger:#E7826F;
+  --plate:#2B372F; --plate-rim:#222C25; --band:#1D3B2C; --band-ink:#EAF4EC; --band-soft:#EDB04C; color-scheme:dark}
+
+*{box-sizing:border-box}
+html,body{min-height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-block:0 calc(88px + env(safe-area-inset-bottom,0px))}
+.wrap{max-width:720px;margin:0 auto}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;line-height:1.15}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible{outline:3px solid var(--spice);outline-offset:2px}
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-block:14px 10px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--line)}
+.top h1{font-size:1.45rem;font-weight:800;letter-spacing:-.01em;flex:1;min-width:0}
+.back{border:0;background:var(--accent-soft);color:var(--accent);border-radius:999px;padding:8px 14px;font-weight:700}
+.eyebrow{font-size:.75rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.sect{padding-block:18px 4px;display:flex;flex-direction:column;gap:10px}
+
+/* Filtre de régime */
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:1.5px solid var(--line);background:var(--surface);border-radius:999px;padding:7px 13px;font-size:.92rem;font-weight:700;color:var(--ink)}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.chip .n{font-weight:400;opacity:.7;font-variant-numeric:tabular-nums}
+.chip .dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--reg);margin-right:6px;vertical-align:1px}
+.chip[aria-pressed="true"] .dot{box-shadow:0 0 0 2px var(--accent-ink)}
+
+/* Bandeau d'accueil */
+.welcome{margin-top:14px;background:var(--band);color:var(--band-ink);border-radius:22px;padding:20px 18px 18px;display:flex;flex-direction:column;gap:6px;position:relative;overflow:hidden}
+.welcome h1{font-size:1.9rem;font-weight:800;letter-spacing:-.02em;max-width:14ch}
+.welcome p{margin:0;opacity:.9}
+.welcome .sun{position:absolute;right:-28px;top:-28px;width:120px;height:120px;border-radius:50%;background:var(--band-soft);opacity:.9}
+.welcome .sun::after{content:"";position:absolute;inset:26px;border-radius:50%;background:var(--band);opacity:.25}
+.search{width:100%;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:11px 16px;font:inherit}
+
+/* Grille des plats */
+.plats{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;padding-block:6px 10px}
+.plat{text-align:left;border:0;background:color-mix(in srgb,var(--dish) 17%,var(--surface));border-radius:20px;padding:14px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.plat .plate{width:72px;height:72px;margin-bottom:6px}
+.plat h2{font-size:1.12rem;font-weight:800}
+.plat .orig{font-size:.85rem;color:var(--muted)}
+.plat .tag{align-self:flex-start;margin-top:6px;font-size:.78rem;font-weight:700;background:var(--surface);color:var(--ink);border-radius:999px;padding:3px 10px;display:inline-flex;align-items:center;gap:6px}
+.plat .tag::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--reg)}
+.none{color:var(--muted);padding-block:8px;grid-column:1/-1;margin:0}
+
+/* Fiche plat */
+.hero{margin-top:14px;background:color-mix(in srgb,var(--dish) 20%,var(--surface));border-radius:22px;padding:16px 18px;display:flex;align-items:center;gap:16px}
+.hero .plate{width:96px;height:96px;flex:none}
+.hero div{display:flex;flex-direction:column;gap:2px;min-width:0}
+.hero h2{font-size:1.8rem;font-weight:800;letter-spacing:-.02em}
+.hero .orig{color:var(--muted)}
+.persons{display:flex;align-items:center;gap:14px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:10px 14px}
+.persons .lbl{flex:1;font-weight:700}
+.step{width:42px;height:42px;border-radius:50%;border:1.5px solid var(--line);background:var(--bg);font-size:1.4rem;font-weight:700;line-height:1}
+.persons output{font-family:var(--f-display);font-size:1.6rem;font-weight:800;min-width:2ch;text-align:center;font-variant-numeric:tabular-nums}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:4px 14px}
+.ing{display:flex;justify-content:space-between;gap:12px;padding-block:9px;border-bottom:1px solid var(--line)}
+.ing:last-child{border-bottom:0}
+.ing span:first-child{min-width:0}
+.qty{font-variant-numeric:tabular-nums;font-weight:700;white-space:nowrap}
+.ray{font-size:.78rem;color:var(--muted);display:block}
+.note{background:var(--spice-soft);border-radius:var(--radius);padding:12px 14px}
+.note p{margin:4px 0 0}
+.cta{width:100%;border:0;border-radius:var(--radius);background:var(--accent);color:var(--accent-ink);font-weight:700;font-size:1.05rem;padding:15px}
+.ghost{border:1.5px solid var(--line);background:transparent;border-radius:999px;padding:8px 14px;font-weight:700;font-size:.9rem}
+.ghost.danger{color:var(--danger);border-color:var(--danger)}
+
+/* Liste de courses */
+.meals{display:flex;flex-wrap:wrap;gap:8px}
+.meal{display:inline-flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:5px 6px 5px 12px;font-size:.9rem}
+.meal button{border:0;background:var(--accent-soft);color:var(--accent);width:26px;height:26px;border-radius:50%;font-weight:700}
+.rayon h3{font-size:1.05rem;font-weight:700;padding-block:6px 2px}
+.item{display:flex;align-items:center;gap:12px;padding-block:10px;border-bottom:1px solid var(--line)}
+.item:last-child{border-bottom:0}
+.item input{width:22px;height:22px;accent-color:var(--accent);flex:none}
+.item label{flex:1;min-width:0;display:flex;justify-content:space-between;gap:10px}
+.item.done label{color:var(--muted);text-decoration:line-through}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.status{font-size:.85rem;color:var(--muted)}
+.empty{background:var(--surface);border:1px dashed var(--line);border-radius:var(--radius);padding:22px 16px;text-align:center;color:var(--muted)}
+.confirm{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:var(--spice-soft);border-radius:var(--radius);padding:10px 12px}
+textarea.copy{width:100%;min-height:180px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font:inherit;padding:10px}
+
+/* Ajout d'une recette */
+.addtile{border:2px dashed var(--line);background:transparent;border-radius:20px;padding:14px;display:flex;flex-direction:column;justify-content:center;align-items:flex-start;gap:6px;min-height:150px;text-align:left;color:var(--accent);font-weight:700}
+.addtile .plus{width:44px;height:44px;border-radius:50%;background:var(--accent-soft);display:grid;place-items:center;font-size:1.6rem;line-height:1}
+.addtile small{color:var(--muted);font-weight:400}
+.form{display:flex;flex-direction:column;gap:8px}
+.field{width:100%;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);border-radius:12px;padding:11px 13px;font:inherit}
+textarea.field{min-height:220px;resize:vertical}
+input.field[type=number]{max-width:120px}
+.lead{margin:0;color:var(--ink)}
+.warn{background:var(--spice-soft);border-left:4px solid var(--spice);border-radius:10px;padding:10px 12px;font-size:.92rem;margin:0}
+.err{background:color-mix(in srgb,var(--danger) 14%,var(--surface));color:var(--ink);border-radius:10px;padding:10px 12px;margin:0}
+.adapt{background:var(--surface);border:1.5px dashed var(--line);border-radius:var(--radius);padding:14px;display:flex;flex-direction:column;gap:10px}
+.adapt p{margin:0;color:var(--muted)}
+.busy{display:flex;align-items:center;gap:12px;background:var(--accent-soft);border-radius:var(--radius);padding:12px 14px}
+.busy span{flex:1}
+.spin{width:22px;height:22px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--accent);flex:none}
+@media (prefers-reduced-motion:no-preference){.spin{animation:spin 1s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}}
+.plat .mine{font-size:.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+
+/* Allergies */
+.algbar{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:10px 14px}
+.algbar strong{font-size:.95rem}
+.algpanel{display:flex;flex-direction:column;gap:10px;padding-top:4px}
+.check{display:flex;align-items:center;gap:10px;font-weight:700}
+.check input{width:22px;height:22px;accent-color:var(--accent)}
+.plat .tag.bad{background:color-mix(in srgb,var(--danger) 16%,var(--surface));color:var(--ink);margin-top:2px}
+.plat .tag.bad::before{background:var(--danger)}
+.danger{background:color-mix(in srgb,var(--danger) 13%,var(--surface));border-left:4px solid var(--danger);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.danger p{margin:0;font-size:.92rem}
+.okbox{background:var(--accent-soft);border-radius:12px;padding:10px 12px;margin:0;font-size:.92rem}
+.ing.alrg span:first-child{color:var(--danger);font-weight:700}
+.ing.alrg .ray{color:var(--danger)}
+
+.avis{display:block;text-align:center;border:2px solid var(--accent);color:var(--accent);border-radius:var(--radius);padding:13px;font-weight:700;text-decoration:none}
+.avis:hover{background:var(--accent-soft)}
+
+/* Onglets du bas */
+.tabs{position:fixed;left:0;right:0;bottom:0;z-index:10;background:var(--surface);border-top:1px solid var(--line);display:flex;justify-content:center;gap:8px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-top:8px;padding-bottom:calc(8px + env(safe-area-inset-bottom,0px))}
+.tab{flex:1;max-width:220px;border:0;background:transparent;border-radius:12px;padding:10px;font-weight:700;color:var(--muted);display:flex;align-items:center;justify-content:center;gap:8px}
+.tab[aria-current="page"]{background:var(--accent-soft);color:var(--accent)}
+.badge{background:var(--spice);color:#1B1408;border-radius:999px;font-size:.75rem;padding:1px 7px;min-width:22px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-weight:700;max-width:calc(100% - 32px);z-index:20}
+@media (prefers-reduced-motion:no-preference){.toast{animation:up .2s ease-out}@keyframes up{from{transform:translate(-50%,8px);opacity:.6}}}
+</style>
+
+<div class="wrap" id="app"></div>
+<nav class="tabs" aria-label="Navigation">
+  <button class="tab" id="tab-plats" type="button">Recettes</button>
+  <button class="tab" id="tab-liste" type="button">Courses <span class="badge" id="badge" hidden>0</span></button>
+</nav>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script>
+const R = {"BLANQ_01":{"p":"BLANQ","r":"Standard","t":"Veau (500g), Beurre (30g), Crème (20cl), Riz blanc","i":"Cuisson classique à la cocotte.","c":"Plat complet traditionnel réconfortant.","g":[["Veau (épaule)",125,"g","Boucherie"],["Beurre",8,"g","Crèmerie"],["Crème fraîche",5,"cl","Crèmerie"],["Farine",5,"g","Épicerie"],["Œuf",0.25,"pièce","Crèmerie"],["Carotte",60,"g","Fruits et légumes"],["Champignon de Paris",50,"g","Fruits et légumes"],["Oignon",30,"g","Fruits et légumes"],["Riz blanc (cru)",70,"g","Épicerie"]]},"BLANQ_02":{"p":"BLANQ","r":"Hypocalorique","t":"Dinde (500g), Fromage blanc 0%, Courgette mixée, Riz complet (portion réduite)","i":"Remplacer la crème par du fromage blanc en fin de cuisson, hors du feu et sans faire bouillir (sinon il tranche).","c":"Moins de lipides, plus de légèreté.","g":[["Dinde (escalope)",125,"g","Boucherie"],["Fromage blanc 0%",60,"g","Crèmerie"],["Courgette",80,"g","Fruits et légumes"],["Farine",5,"g","Épicerie"],["Carotte",60,"g","Fruits et légumes"],["Champignon de Paris",50,"g","Fruits et légumes"],["Oignon",30,"g","Fruits et légumes"],["Riz complet (cru)",35,"g","Épicerie"]]},"BLANQ_03":{"p":"BLANQ","r":"Sans Lactose","t":"Veau, Crème de Soja, Huile d'olive, Riz blanc","i":"Utiliser la crème de soja pour l'onctuosité.","c":"Digestion facilitée sans allergènes.","g":[["Veau (épaule)",125,"g","Boucherie"],["Crème de soja cuisine",5,"cl","Produits végétaux"],["Huile d'olive",5,"ml","Épicerie"],["Farine",5,"g","Épicerie"],["Carotte",60,"g","Fruits et légumes"],["Champignon de Paris",50,"g","Fruits et légumes"],["Oignon",30,"g","Fruits et légumes"],["Œuf",0.25,"pièce","Crèmerie"],["Riz blanc (cru)",70,"g","Épicerie"]]},"BLANQ_04":{"p":"BLANQ","r":"Hyperprotéiné","t":"Veau (+200g), Blancs d'œufs (2), Riz blanc","i":"Hors du feu, tempérer les blancs d'œufs avec une louche de sauce chaude, puis les incorporer en fouettant sans faire bouillir.","c":"Idéal pour la satiété et le muscle.","g":[["Veau (épaule)",175,"g","Boucherie"],["Œuf",0.5,"pièce","Crèmerie"],["Beurre",8,"g","Crèmerie"],["Crème fraîche",5,"cl","Crèmerie"],["Farine",5,"g","Épicerie"],["Carotte",60,"g","Fruits et légumes"],["Champignon de Paris",50,"g","Fruits et légumes"],["Oignon",30,"g","Fruits et légumes"],["Riz blanc (cru)",70,"g","Épicerie"]]},"BLANQ_05":{"p":"BLANQ","r":"Sans Gluten","t":"Veau, Fécule de maïs, Beurre, Crème, Riz blanc","i":"Lier la sauce avec de la fécule de maïs délayée à froid, à la place de la farine.","c":"Sauce onctueuse, sans blé.","g":[["Veau (épaule)",125,"g","Boucherie"],["Beurre",8,"g","Crèmerie"],["Crème fraîche",5,"cl","Crèmerie"],["Fécule de maïs (maïzena)",5,"g","Épicerie"],["Œuf",0.25,"pièce","Crèmerie"],["Carotte",60,"g","Fruits et légumes"],["Champignon de Paris",50,"g","Fruits et légumes"],["Oignon",30,"g","Fruits et légumes"],["Riz blanc (cru)",70,"g","Épicerie"]]},"BLANQ_06":{"p":"BLANQ","r":"Vegan","t":"Protéines de soja texturées, Champignons, Crème de soja, Margarine végétale, Riz blanc","i":"Réhydrater les protéines de soja, les dorer, puis mijoter avec bouillon de légumes et crème de soja.","c":"Plat végétal riche en protéines et en fibres.","g":[["Protéines de soja texturées (sèches)",40,"g","Produits végétaux"],["Champignon de Paris",100,"g","Fruits et légumes"],["Crème de soja cuisine",5,"cl","Produits végétaux"],["Margarine végétale",8,"g","Produits végétaux"],["Farine",5,"g","Épicerie"],["Bouillon de légumes",20,"cl","Épicerie"],["Carotte",60,"g","Fruits et légumes"],["Oignon",30,"g","Fruits et légumes"],["Riz blanc (cru)",70,"g","Épicerie"]]},"BLANQ_07":{"p":"BLANQ","r":"Sans Lactose + Sans Gluten","t":"Veau, Fécule de maïs, Crème de soja, Huile d'olive, Riz blanc","i":"Lier la sauce avec de la fécule de maïs délayée à froid, puis ajouter la crème de soja hors du feu.","c":"Sauce onctueuse sans lait ni blé.","g":[["Veau (épaule)",125,"g","Boucherie"],["Crème de soja cuisine",5,"cl","Produits végétaux"],["Huile d'olive",5,"ml","Épicerie"],["Fécule de maïs (maïzena)",5,"g","Épicerie"],["Carotte",60,"g","Fruits et légumes"],["Champignon de Paris",50,"g","Fruits et légumes"],["Oignon",30,"g","Fruits et légumes"],["Œuf",0.25,"pièce","Crèmerie"],["Riz blanc (cru)",70,"g","Épicerie"]]},"GRATIN_01":{"p":"GRATIN","r":"Standard","t":"PDT (1kg), Crème 30%, Lait entier, Beurre","i":"Cuisson lente au four à 180°C.","c":"Un classique réconfortant, riche en féculents. Plutôt un accompagnement : à associer à une viande, un poisson ou des œufs.","g":[["Pomme de terre",250,"g","Fruits et légumes"],["Crème fraîche",10,"cl","Crèmerie"],["Lait entier",10,"cl","Crèmerie"],["Beurre",5,"g","Crèmerie"],["Ail",3,"g","Fruits et légumes"]]},"GRATIN_02":{"p":"GRATIN","r":"Hypocalorique","t":"PDT/Chou-fleur (50/50), Lait écrémé","i":"Remplacer moitié des PDT par du chou-fleur bien égoutté, et lier le lait avec un peu de fécule de maïs.","c":"Volume identique, calories divisées par deux ou plus.","g":[["Pomme de terre",125,"g","Fruits et légumes"],["Chou-fleur",125,"g","Fruits et légumes"],["Lait écrémé",15,"cl","Crèmerie"],["Ail",3,"g","Fruits et légumes"],["Fécule de maïs (maïzena)",4,"g","Épicerie"]]},"GRATIN_03":{"p":"GRATIN","r":"Sans Lactose","t":"PDT, Lait d'Amande, Crème de Riz","i":"Frotter le plat à l'ail pour le goût.","c":"Alternative végétale gourmande.","g":[["Pomme de terre",250,"g","Fruits et légumes"],["Lait d'amande",12,"cl","Produits végétaux"],["Crème de riz",8,"cl","Produits végétaux"],["Ail",3,"g","Fruits et légumes"]]},"GRATIN_04":{"p":"GRATIN","r":"Hyperprotéiné","t":"PDT, Jambon blanc (haché), Lait demi-écrémé","i":"Intégrer des couches de jambon entre les PDT.","c":"Un plat unique complet et protéiné.","g":[["Pomme de terre",250,"g","Fruits et légumes"],["Jambon blanc",80,"g","Charcuterie"],["Lait demi-écrémé",15,"cl","Crèmerie"],["Ail",3,"g","Fruits et légumes"]]},"GRATIN_05":{"p":"GRATIN","r":"Sans Gluten","t":"PDT, Crème 30%, Lait entier, Beurre","i":"Ne pas ajouter de farine et vérifier que la crème n'a pas d'épaississant à base de blé.","c":"Naturellement sans gluten, à condition de lire les étiquettes.","g":[["Pomme de terre",250,"g","Fruits et légumes"],["Crème fraîche",10,"cl","Crèmerie"],["Lait entier",10,"cl","Crèmerie"],["Beurre",5,"g","Crèmerie"],["Ail",3,"g","Fruits et légumes"]]},"GRATIN_06":{"p":"GRATIN","r":"Vegan","t":"PDT, Crème de soja, Lait de soja, Margarine, Levure nutritionnelle","i":"Frotter le plat à l'ail, cuire à 180°C jusqu'à ce que le dessus soit doré.","c":"Version végétale fondante, sans produit laitier.","g":[["Pomme de terre",250,"g","Fruits et légumes"],["Crème de soja cuisine",10,"cl","Produits végétaux"],["Lait de soja",10,"cl","Produits végétaux"],["Margarine végétale",5,"g","Produits végétaux"],["Ail",3,"g","Fruits et légumes"],["Levure nutritionnelle (flocons)",5,"g","Épicerie"]]},"GRATIN_07":{"p":"GRATIN","r":"Sans Lactose + Sans Gluten","t":"PDT, Lait d'amande, Crème de riz","i":"Frotter le plat à l'ail, cuire à 180°C et vérifier que la crème de riz ne contient pas de gluten.","c":"Gratin naturellement sans blé, version végétale.","g":[["Pomme de terre",250,"g","Fruits et légumes"],["Lait d'amande",12,"cl","Produits végétaux"],["Crème de riz",8,"cl","Produits végétaux"],["Ail",3,"g","Fruits et légumes"]]},"LASAG_01":{"p":"LASAG","r":"Standard","t":"Pâtes blé, Bœuf 15%, Béchamel beurre","i":"Montage classique par couches.","c":"Équilibre glucides/protéines classique.","g":[["Plaques de lasagnes",60,"g","Épicerie"],["Bœuf haché 15%",125,"g","Boucherie"],["Beurre",8,"g","Crèmerie"],["Farine",8,"g","Épicerie"],["Lait entier",15,"cl","Crèmerie"],["Gruyère râpé",20,"g","Crèmerie"],["Sauce tomate",100,"g","Épicerie"],["Oignon",30,"g","Fruits et légumes"],["Carotte",40,"g","Fruits et légumes"]]},"LASAG_02":{"p":"LASAG","r":"Hypocalorique","t":"Tranches d'Aubergines, Bœuf 5%, Sauce tomate","i":"Remplacer les plaques de pâtes par l'aubergine.","c":"IG bas et riche en fibres.","g":[["Aubergine",150,"g","Fruits et légumes"],["Bœuf haché 5%",125,"g","Boucherie"],["Gruyère râpé",10,"g","Crèmerie"],["Sauce tomate",100,"g","Épicerie"],["Oignon",30,"g","Fruits et légumes"],["Carotte",40,"g","Fruits et légumes"]]},"LASAG_03":{"p":"LASAG","r":"Sans Lactose","t":"Pâtes blé, Crème coco (légère), Huile","i":"Faire une béchamel à l'huile et lait végétal.","c":"Zéro résidu lacté, même texture.","g":[["Plaques de lasagnes",60,"g","Épicerie"],["Bœuf haché 15%",125,"g","Boucherie"],["Huile d'olive",5,"ml","Épicerie"],["Farine",8,"g","Épicerie"],["Lait d'avoine",15,"cl","Produits végétaux"],["Crème de coco légère",5,"cl","Produits végétaux"],["Sauce tomate",100,"g","Épicerie"],["Oignon",30,"g","Fruits et légumes"],["Carotte",40,"g","Fruits et légumes"]]},"LASAG_04":{"p":"LASAG","r":"Hyperprotéiné","t":"Pâtes blé, Lentilles corail + Bœuf 5%","i":"Mélanger lentilles et viande dans la sauce, en ajoutant un peu d'eau ou de bouillon pendant le mijotage (les lentilles corail absorbent beaucoup de liquide).","c":"Boost de protéines végétales et fer.","g":[["Plaques de lasagnes",60,"g","Épicerie"],["Lentilles corail (sèches)",40,"g","Épicerie"],["Bœuf haché 5%",100,"g","Boucherie"],["Gruyère râpé",15,"g","Crèmerie"],["Sauce tomate",100,"g","Épicerie"],["Oignon",30,"g","Fruits et légumes"],["Lait demi-écrémé",10,"cl","Crèmerie"],["Farine",5,"g","Épicerie"],["Beurre",5,"g","Crèmerie"],["Carotte",40,"g","Fruits et légumes"]]},"LASAG_05":{"p":"LASAG","r":"Sans Gluten","t":"Plaques sans gluten, Bœuf 15%, Sauce tomate, Béchamel à la maïzena","i":"Faire la béchamel à la maïzena et prévoir une cuisson un peu plus longue pour les plaques sans gluten.","c":"Le plaisir des lasagnes, sans blé.","g":[["Plaques de lasagnes sans gluten",60,"g","Épicerie"],["Bœuf haché 15%",125,"g","Boucherie"],["Beurre",8,"g","Crèmerie"],["Fécule de maïs (maïzena)",8,"g","Épicerie"],["Lait entier",15,"cl","Crèmerie"],["Gruyère râpé",20,"g","Crèmerie"],["Sauce tomate",100,"g","Épicerie"],["Oignon",30,"g","Fruits et légumes"],["Carotte",40,"g","Fruits et légumes"]]},"LASAG_06":{"p":"LASAG","r":"Vegan","t":"Plaques de pâtes, Lentilles corail, Sauce tomate, Béchamel de soja","i":"Mijoter les lentilles corail dans la sauce tomate en ajoutant 12 à 15 cl d'eau ou de bouillon par personne, puis monter en couches avec la béchamel de soja.","c":"Protéines végétales et fibres, sans viande ni produit laitier.","g":[["Plaques de lasagnes (sans œuf)",60,"g","Épicerie"],["Lentilles corail (sèches)",60,"g","Épicerie"],["Carotte",40,"g","Fruits et légumes"],["Margarine végétale",8,"g","Produits végétaux"],["Farine",8,"g","Épicerie"],["Lait de soja",15,"cl","Produits végétaux"],["Levure nutritionnelle (flocons)",3,"g","Épicerie"],["Sauce tomate",100,"g","Épicerie"],["Oignon",30,"g","Fruits et légumes"]]},"LASAG_07":{"p":"LASAG","r":"Sans Lactose + Sans Gluten","t":"Plaques sans gluten, Bœuf 15%, Sauce tomate, Béchamel maïzena + lait de riz","i":"Faire la béchamel à l'huile d'olive, à la maïzena et au lait de riz, cuire un peu plus longtemps les plaques sans gluten.","c":"Lasagnes sans lait ni blé, même plaisir.","g":[["Plaques de lasagnes sans gluten",60,"g","Épicerie"],["Bœuf haché 15%",125,"g","Boucherie"],["Huile d'olive",5,"ml","Épicerie"],["Fécule de maïs (maïzena)",8,"g","Épicerie"],["Lait de riz",15,"cl","Produits végétaux"],["Sauce tomate",100,"g","Épicerie"],["Oignon",30,"g","Fruits et légumes"],["Carotte",40,"g","Fruits et légumes"]]},"HACHI_01":{"p":"HACHI","r":"Standard","t":"PDT (800g), Bœuf 15%, Beurre, Lait","i":"Purée onctueuse et viande revenue.","c":"Plat familial réconfortant.","g":[["Pomme de terre",200,"g","Fruits et légumes"],["Bœuf haché 15%",125,"g","Boucherie"],["Beurre",10,"g","Crèmerie"],["Lait entier",5,"cl","Crèmerie"],["Oignon",30,"g","Fruits et légumes"]]},"HACHI_02":{"p":"HACHI","r":"Hypocalorique","t":"Purée de Courge, Poulet haché, Muscade","i":"Remplacer la pomme de terre par du potiron rôti au four puis égoutté, pour évaporer l'eau et obtenir une purée qui tient.","c":"Moins de glucides, plus de vitamines A.","g":[["Potiron",200,"g","Fruits et légumes"],["Poulet haché",125,"g","Boucherie"],["Oignon",30,"g","Fruits et légumes"],["Noix de muscade",0.5,"g","Épices"]]},"HACHI_03":{"p":"HACHI","r":"Sans Lactose","t":"PDT, Lait de Riz, Huile de colza","i":"Utiliser l'eau de cuisson pour la purée.","c":"Texture légère et digestion parfaite.","g":[["Pomme de terre",200,"g","Fruits et légumes"],["Bœuf haché 15%",125,"g","Boucherie"],["Lait de riz",5,"cl","Produits végétaux"],["Huile de colza",5,"ml","Épicerie"],["Oignon",30,"g","Fruits et légumes"]]},"HACHI_04":{"p":"HACHI","r":"Hyperprotéiné","t":"PDT, Bœuf 5%, Œuf dur écrasé","i":"Ajouter les œufs durs hachés (2 pour 4 personnes) dans la viande.","c":"Riche en fer et protéines animales.","g":[["Pomme de terre",200,"g","Fruits et légumes"],["Bœuf haché 5%",125,"g","Boucherie"],["Œuf",0.5,"pièce","Crèmerie"],["Beurre",5,"g","Crèmerie"],["Lait demi-écrémé",5,"cl","Crèmerie"],["Oignon",30,"g","Fruits et légumes"]]},"HACHI_05":{"p":"HACHI","r":"Sans Gluten","t":"PDT, Bœuf 15%, Beurre, Lait","i":"Ne pas saupoudrer de chapelure, ou utiliser une chapelure sans gluten.","c":"Naturellement sans gluten, vérifier le bouillon.","g":[["Pomme de terre",200,"g","Fruits et légumes"],["Bœuf haché 15%",125,"g","Boucherie"],["Beurre",10,"g","Crèmerie"],["Lait entier",5,"cl","Crèmerie"],["Oignon",30,"g","Fruits et légumes"]]},"HACHI_06":{"p":"HACHI","r":"Vegan","t":"PDT, Lentilles vertes, Champignons, Margarine, Lait de soja","i":"Faire revenir champignons et lentilles, recouvrir de purée à la margarine puis gratiner.","c":"Parmentier végétal riche en fibres et en fer.","g":[["Pomme de terre",200,"g","Fruits et légumes"],["Lentilles vertes cuites",150,"g","Épicerie"],["Champignon de Paris",60,"g","Fruits et légumes"],["Margarine végétale",10,"g","Produits végétaux"],["Lait de soja",5,"cl","Produits végétaux"],["Oignon",30,"g","Fruits et légumes"]]},"HACHI_07":{"p":"HACHI","r":"Sans Lactose + Sans Gluten","t":"PDT, Bœuf 15%, Lait de riz, Huile de colza","i":"Écraser les pommes de terre avec le lait de riz et l'huile, sans chapelure.","c":"Purée légère, sans lait ni gluten.","g":[["Pomme de terre",200,"g","Fruits et légumes"],["Bœuf haché 15%",125,"g","Boucherie"],["Lait de riz",5,"cl","Produits végétaux"],["Huile de colza",5,"ml","Épicerie"],["Oignon",30,"g","Fruits et légumes"]]},"CURRY_01":{"p":"CURRY","r":"Standard","t":"Poulet (400g), Lait de coco, Riz blanc","i":"Cuisson rapide au wok.","c":"Saveurs exotiques et énergie rapide.","g":[["Poulet (blanc)",100,"g","Boucherie"],["Lait de coco",10,"cl","Épicerie"],["Riz blanc (cru)",70,"g","Épicerie"],["Ail",3,"g","Fruits et légumes"],["Oignon",30,"g","Fruits et légumes"],["Curry en poudre",2,"g","Épices"]]},"CURRY_02":{"p":"CURRY","r":"Hypocalorique","t":"Poulet, Lait de Coco Light, Riz Chou-fleur","i":"Remplacer le riz par du chou-fleur râpé.","c":"Très faible densité calorique (Volume+).","g":[["Poulet (blanc)",100,"g","Boucherie"],["Lait de coco light",8,"cl","Épicerie"],["Chou-fleur",150,"g","Fruits et légumes"],["Oignon",30,"g","Fruits et légumes"],["Curry en poudre",2,"g","Épices"],["Ail",3,"g","Fruits et légumes"]]},"CURRY_03":{"p":"CURRY","r":"Sans Lactose","t":"Poulet, Crème d'amande, Épices curry","i":"La crème d'amande remplace la coco épaisse.","c":"Sans lactose, riche en vitamine E et magnésium (amande). Le lait de coco de la version standard est lui aussi sans lactose.","g":[["Poulet (blanc)",100,"g","Boucherie"],["Crème d'amande",8,"cl","Produits végétaux"],["Riz blanc (cru)",70,"g","Épicerie"],["Oignon",30,"g","Fruits et légumes"],["Curry en poudre",2,"g","Épices"],["Ail",3,"g","Fruits et légumes"]]},"CURRY_04":{"p":"CURRY","r":"Hyperprotéiné","t":"Poulet (+200g), Pois chiches, Lait coco","i":"Ajouter des pois chiches pour les fibres.","c":"Duo protéines animales et végétales.","g":[["Poulet (blanc)",150,"g","Boucherie"],["Pois chiches cuits",60,"g","Épicerie"],["Lait de coco",10,"cl","Épicerie"],["Riz blanc (cru)",70,"g","Épicerie"],["Oignon",30,"g","Fruits et légumes"],["Curry en poudre",2,"g","Épices"],["Ail",3,"g","Fruits et légumes"]]},"CURRY_05":{"p":"CURRY","r":"Sans Gluten","t":"Poulet, Lait de coco, Riz blanc, Curry","i":"Vérifier que la poudre de curry ne contient pas d'agent à base de blé.","c":"Plat naturellement sans gluten.","g":[["Poulet (blanc)",100,"g","Boucherie"],["Lait de coco",10,"cl","Épicerie"],["Riz blanc (cru)",70,"g","Épicerie"],["Ail",3,"g","Fruits et légumes"],["Oignon",30,"g","Fruits et légumes"],["Curry en poudre",2,"g","Épices"]]},"CURRY_06":{"p":"CURRY","r":"Vegan","t":"Pois chiches, Lait de coco, Épinards, Riz blanc","i":"Mijoter les pois chiches dans le lait de coco épicé, ajouter les épinards en fin de cuisson.","c":"Version végétale complète, protéines et fer.","g":[["Pois chiches cuits",150,"g","Épicerie"],["Lait de coco",10,"cl","Épicerie"],["Épinards frais",50,"g","Fruits et légumes"],["Riz blanc (cru)",70,"g","Épicerie"],["Oignon",30,"g","Fruits et légumes"],["Curry en poudre",2,"g","Épices"],["Ail",3,"g","Fruits et légumes"]]},"CURRY_07":{"p":"CURRY","r":"Sans Lactose + Sans Gluten","t":"Poulet, Lait de coco, Riz blanc, Curry","i":"Vérifier que la poudre de curry ne contient pas de blé et cuire au wok comme la version standard.","c":"Naturellement sans lactose ni gluten.","g":[["Poulet (blanc)",100,"g","Boucherie"],["Lait de coco",10,"cl","Épicerie"],["Riz blanc (cru)",70,"g","Épicerie"],["Ail",3,"g","Fruits et légumes"],["Oignon",30,"g","Fruits et légumes"],["Curry en poudre",2,"g","Épices"]]},"QUICH_01":{"p":"QUICH","r":"Standard","t":"Pâte brisée, Lardons, Crème, Œufs","i":"Cuisson au four à 180°C (30 min).","c":"Le classique de la boulangerie française.","g":[["Pâte brisée",55,"g","Crèmerie"],["Lardons",40,"g","Charcuterie"],["Crème fraîche",5,"cl","Crèmerie"],["Œuf",0.75,"pièce","Crèmerie"],["Lait entier",5,"cl","Crèmerie"]]},"QUICH_02":{"p":"QUICH","r":"Hypocalorique","t":"Fond Courgette, Jambon, Fromage blanc","i":"Utiliser des rondelles de courgettes en \"pâte\".","c":"Zéro pâte à tarte, légèreté maximale.","g":[["Courgette",150,"g","Fruits et légumes"],["Jambon blanc",40,"g","Charcuterie"],["Fromage blanc 0%",60,"g","Crèmerie"],["Œuf",0.75,"pièce","Crèmerie"]]},"QUICH_03":{"p":"QUICH","r":"Sans Lactose","t":"Pâte sans beurre, Lardons, Crème Soja","i":"Pâte à l'huile d'olive et soja cuisine.","c":"Option saine pour les intolérants.","g":[["Pâte brisée sans beurre",55,"g","Crèmerie"],["Lardons",40,"g","Charcuterie"],["Crème de soja cuisine",10,"cl","Produits végétaux"],["Œuf",0.75,"pièce","Crèmerie"]]},"QUICH_04":{"p":"QUICH","r":"Hyperprotéiné","t":"Pâte brisée, Dés de poulet (360g), 6 Blancs d'œufs","i":"Répartir les dés de poulet sur la pâte, verser les blancs d'œufs battus, cuire à 180°C (30 min).","c":"Riche en protéines maigres, très rassasiant.","g":[["Pâte brisée",55,"g","Crèmerie"],["Poulet (blanc)",90,"g","Boucherie"],["Œuf",1.5,"pièce","Crèmerie"],["Lait demi-écrémé",8,"cl","Crèmerie"]]},"QUICH_05":{"p":"QUICH","r":"Sans Gluten","t":"Pâte sans gluten, Lardons, Crème, Œufs","i":"Précuire le fond de pâte sans gluten 10 min à 180°C avant de garnir.","c":"Quiche gourmande pour les intolérants au gluten.","g":[["Pâte sans gluten",55,"g","Crèmerie"],["Lardons",40,"g","Charcuterie"],["Crème fraîche",5,"cl","Crèmerie"],["Œuf",0.75,"pièce","Crèmerie"],["Lait entier",5,"cl","Crèmerie"]]},"QUICH_06":{"p":"QUICH","r":"Vegan","t":"Pâte brisée végétale, Tofu soyeux, Allumettes végétales fumées, Poireau, Fécule de maïs","i":"Mixer le tofu soyeux avec la crème de soja et la fécule de maïs, garnir et cuire à 180°C (30 min).","c":"Quiche sans œuf ni produit laitier, légère et protéinée.","g":[["Pâte brisée végétale",55,"g","Crèmerie"],["Tofu soyeux",60,"g","Produits végétaux"],["Allumettes végétales fumées",40,"g","Produits végétaux"],["Crème de soja cuisine",5,"cl","Produits végétaux"],["Poireau",50,"g","Fruits et légumes"],["Levure nutritionnelle (flocons)",8,"g","Épicerie"],["Fécule de maïs (maïzena)",5,"g","Épicerie"]]},"QUICH_07":{"p":"QUICH","r":"Sans Lactose + Sans Gluten","t":"Pâte sans gluten à l'huile d'olive, Lardons, Crème de soja, Œufs","i":"Précuire le fond de pâte sans gluten 10 min à 180°C avant de garnir avec l'appareil à la crème de soja.","c":"Quiche gourmande sans lait ni blé.","g":[["Pâte sans gluten et sans beurre",55,"g","Crèmerie"],["Lardons",40,"g","Charcuterie"],["Crème de soja cuisine",10,"cl","Produits végétaux"],["Œuf",0.75,"pièce","Crèmerie"]]},"COUSC_01":{"p":"COUSC","r":"Standard","t":"Semoule, Agneau/Merguez, Légumes, Pois chiches","i":"Cuisson vapeur et bouillon épicé.","c":"Plat complet, riche en fibres et saveurs.","g":[["Semoule (sèche)",70,"g","Épicerie"],["Agneau (épaule)",100,"g","Boucherie"],["Merguez",1,"pièce","Boucherie"],["Pois chiches cuits",40,"g","Épicerie"],["Carotte",60,"g","Fruits et légumes"],["Courgette",60,"g","Fruits et légumes"],["Navet",50,"g","Fruits et légumes"],["Oignon",30,"g","Fruits et légumes"],["Concentré de tomate",5,"g","Épicerie"],["Ras el hanout",2,"g","Épices"]]},"COUSC_02":{"p":"COUSC","r":"Hypocalorique","t":"Semoule complète, Poulet, Courgettes, carottes et navets doublés","i":"Doubler la dose de légumes, limiter la semoule.","c":"Satiété maximale, index glycémique (IG) bas.","g":[["Semoule complète (sèche)",40,"g","Épicerie"],["Poulet (blanc)",100,"g","Boucherie"],["Pois chiches cuits",30,"g","Épicerie"],["Courgette",120,"g","Fruits et légumes"],["Carotte",120,"g","Fruits et légumes"],["Navet",100,"g","Fruits et légumes"],["Oignon",40,"g","Fruits et légumes"],["Concentré de tomate",5,"g","Épicerie"],["Ras el hanout",2,"g","Épices"]]},"COUSC_03":{"p":"COUSC","r":"Sans Lactose","t":"Standard (Naturellement sans lactose)","i":"Vérifier l'absence de beurre dans la semoule et de lactose dans les merguez.","c":"Naturellement digeste pour les intolérants.","g":[["Semoule (sèche)",70,"g","Épicerie"],["Agneau (épaule)",100,"g","Boucherie"],["Merguez",1,"pièce","Boucherie"],["Pois chiches cuits",40,"g","Épicerie"],["Carotte",60,"g","Fruits et légumes"],["Courgette",60,"g","Fruits et légumes"],["Navet",50,"g","Fruits et légumes"],["Oignon",30,"g","Fruits et légumes"],["Concentré de tomate",5,"g","Épicerie"],["Ras el hanout",2,"g","Épices"]]},"COUSC_04":{"p":"COUSC","r":"Hyperprotéiné","t":"Poulet, Pois chiches, Quinoa (160g) et Semoule (120g)","i":"Mélanger Quinoa et Semoule pour les acides aminés.","c":"Combo protéines animales et végétales puissant.","g":[["Quinoa (cru)",40,"g","Épicerie"],["Semoule (sèche)",30,"g","Épicerie"],["Poulet (blanc)",140,"g","Boucherie"],["Pois chiches cuits",60,"g","Épicerie"],["Carotte",60,"g","Fruits et légumes"],["Courgette",60,"g","Fruits et légumes"],["Navet",50,"g","Fruits et légumes"],["Oignon",30,"g","Fruits et légumes"],["Concentré de tomate",5,"g","Épicerie"],["Ras el hanout",2,"g","Épices"]]},"COUSC_05":{"p":"COUSC","r":"Sans Gluten","t":"Semoule de maïs, Poulet, Légumes, Pois chiches","i":"Remplacer la semoule de blé par de la semoule de maïs et vérifier le bouillon.","c":"Plat complet sans gluten (volaille choisie car certaines merguez industrielles contiennent des additifs à base de blé).","g":[["Semoule de maïs (sèche)",70,"g","Épicerie"],["Poulet (blanc)",120,"g","Boucherie"],["Pois chiches cuits",40,"g","Épicerie"],["Carotte",60,"g","Fruits et légumes"],["Courgette",60,"g","Fruits et légumes"],["Navet",50,"g","Fruits et légumes"],["Oignon",30,"g","Fruits et légumes"],["Concentré de tomate",5,"g","Épicerie"],["Ras el hanout",2,"g","Épices"]]},"COUSC_06":{"p":"COUSC","r":"Vegan","t":"Semoule, Pois chiches, Légumes, Raisins secs","i":"Cuire les légumes dans le bouillon épicé, ajouter pois chiches et raisins secs en fin de cuisson.","c":"Couscous végétal complet, riche en fibres.","g":[["Semoule (sèche)",70,"g","Épicerie"],["Pois chiches cuits",130,"g","Épicerie"],["Raisins secs",10,"g","Épicerie"],["Carotte",60,"g","Fruits et légumes"],["Courgette",60,"g","Fruits et légumes"],["Navet",50,"g","Fruits et légumes"],["Oignon",30,"g","Fruits et légumes"],["Concentré de tomate",5,"g","Épicerie"],["Ras el hanout",2,"g","Épices"]]},"COUSC_07":{"p":"COUSC","r":"Sans Lactose + Sans Gluten","t":"Semoule de maïs, Poulet, Légumes, Pois chiches","i":"Remplacer la semoule de blé par de la semoule de maïs et vérifier l'absence de beurre et de blé dans le bouillon.","c":"Sans lactose ni gluten (volaille choisie car certaines merguez industrielles contiennent du blé ou du lactose).","g":[["Semoule de maïs (sèche)",70,"g","Épicerie"],["Poulet (blanc)",120,"g","Boucherie"],["Pois chiches cuits",40,"g","Épicerie"],["Carotte",60,"g","Fruits et légumes"],["Courgette",60,"g","Fruits et légumes"],["Navet",50,"g","Fruits et légumes"],["Oignon",30,"g","Fruits et légumes"],["Concentré de tomate",5,"g","Épicerie"],["Ras el hanout",2,"g","Épices"]]},"COLOM_01":{"p":"COLOM","r":"Standard","t":"Poulet, Pommes de terre, Lait de coco, Épices, Riz blanc","i":"Marinade citron/épices avant cuisson.","c":"Cuisine antillaise parfumée et réconfortante.","g":[["Poulet (cuisse désossée)",120,"g","Boucherie"],["Pomme de terre",100,"g","Fruits et légumes"],["Lait de coco",8,"cl","Épicerie"],["Poudre de colombo",3,"g","Épices"],["Citron vert",0.25,"pièce","Fruits et légumes"],["Oignon",30,"g","Fruits et légumes"],["Ail",3,"g","Fruits et légumes"],["Riz blanc (cru)",50,"g","Épicerie"]]},"COLOM_02":{"p":"COLOM","r":"Hypocalorique","t":"Poulet, Aubergines/Christophines, Épices, Riz complet (portion réduite)","i":"Remplacer la PDT par des légumes fondants.","c":"Très léger, mise en avant des épices.","g":[["Poulet (cuisse désossée)",120,"g","Boucherie"],["Aubergine",100,"g","Fruits et légumes"],["Christophine",100,"g","Fruits et légumes"],["Poudre de colombo",3,"g","Épices"],["Citron vert",0.25,"pièce","Fruits et légumes"],["Oignon",30,"g","Fruits et légumes"],["Ail",3,"g","Fruits et légumes"],["Riz complet (cru)",35,"g","Épicerie"]]},"COLOM_03":{"p":"COLOM","r":"Sans Lactose","t":"Poulet, Crème de riz ou Bouillon corsé, Riz blanc","i":"Ne pas utiliser de crème laitière pour lier.","c":"Les épices portent le plat sans gras laitiers.","g":[["Poulet (cuisse désossée)",120,"g","Boucherie"],["Pomme de terre",100,"g","Fruits et légumes"],["Crème de riz",8,"cl","Produits végétaux"],["Poudre de colombo",3,"g","Épices"],["Citron vert",0.25,"pièce","Fruits et légumes"],["Oignon",30,"g","Fruits et légumes"],["Ail",3,"g","Fruits et légumes"],["Riz blanc (cru)",50,"g","Épicerie"]]},"COLOM_04":{"p":"COLOM","r":"Hyperprotéiné","t":"Poulet (+200g), Haricots rouges, Épices, Riz blanc","i":"Ajouter des haricots rouges dans le bouillon.","c":"Énergie durable et récupération musculaire.","g":[["Poulet (cuisse désossée)",170,"g","Boucherie"],["Haricots rouges cuits",60,"g","Épicerie"],["Pomme de terre",100,"g","Fruits et légumes"],["Lait de coco",8,"cl","Épicerie"],["Poudre de colombo",3,"g","Épices"],["Citron vert",0.25,"pièce","Fruits et légumes"],["Oignon",30,"g","Fruits et légumes"],["Ail",3,"g","Fruits et légumes"],["Riz blanc (cru)",50,"g","Épicerie"]]},"COLOM_05":{"p":"COLOM","r":"Sans Gluten","t":"Poulet, PDT, Lait de coco, Poudre de colombo, Riz blanc","i":"Contrôler la composition de la poudre de colombo (sans ajout de blé).","c":"Plat antillais naturellement sans gluten.","g":[["Poulet (cuisse désossée)",120,"g","Boucherie"],["Pomme de terre",100,"g","Fruits et légumes"],["Lait de coco",8,"cl","Épicerie"],["Poudre de colombo",3,"g","Épices"],["Citron vert",0.25,"pièce","Fruits et légumes"],["Oignon",30,"g","Fruits et légumes"],["Ail",3,"g","Fruits et légumes"],["Riz blanc (cru)",50,"g","Épicerie"]]},"COLOM_06":{"p":"COLOM","r":"Vegan","t":"Pois chiches, Christophine, PDT, Lait de coco, Colombo, Riz blanc","i":"Remplacer le poulet par des pois chiches ajoutés en cours de mijotage dans le bouillon parfumé.","c":"Colombo végétal parfumé, riche en fibres.","g":[["Pois chiches cuits",160,"g","Épicerie"],["Christophine",100,"g","Fruits et légumes"],["Pomme de terre",100,"g","Fruits et légumes"],["Lait de coco",8,"cl","Épicerie"],["Poudre de colombo",3,"g","Épices"],["Citron vert",0.25,"pièce","Fruits et légumes"],["Oignon",30,"g","Fruits et légumes"],["Ail",3,"g","Fruits et légumes"],["Riz blanc (cru)",50,"g","Épicerie"]]},"COLOM_07":{"p":"COLOM","r":"Sans Lactose + Sans Gluten","t":"Poulet, PDT, Lait de coco, Poudre de colombo, Riz blanc","i":"Contrôler la poudre de colombo (sans ajout de blé) et lier avec le lait de coco.","c":"Plat antillais sans lactose ni gluten.","g":[["Poulet (cuisse désossée)",120,"g","Boucherie"],["Pomme de terre",100,"g","Fruits et légumes"],["Lait de coco",8,"cl","Épicerie"],["Poudre de colombo",3,"g","Épices"],["Citron vert",0.25,"pièce","Fruits et légumes"],["Oignon",30,"g","Fruits et légumes"],["Ail",3,"g","Fruits et légumes"],["Riz blanc (cru)",50,"g","Épicerie"]]},"MAFE_01":{"p":"MAFE","r":"Standard","t":"Poulet, Pâte d'arachide, Tomate, Riz blanc","i":"Mijoté long pour lier la sauce arachide.","c":"Plat d'Afrique de l'Ouest riche et généreux.","g":[["Poulet (cuisse désossée)",120,"g","Boucherie"],["Pâte d'arachide",25,"g","Épicerie"],["Tomate concassée",80,"g","Épicerie"],["Riz blanc (cru)",70,"g","Épicerie"],["Carotte",40,"g","Fruits et légumes"],["Oignon",30,"g","Fruits et légumes"],["Ail",3,"g","Fruits et légumes"]]},"MAFE_02":{"p":"MAFE","r":"Hypocalorique","t":"Poulet, Beurre de cacahuète (1 c.à.s), Potiron, Carotte, Riz complet réduit (160g)","i":"Remplacer l'excès de pâte par du potiron mixé.","c":"Garde le goût de l'arachide sans les calories.","g":[["Poulet (cuisse désossée)",120,"g","Boucherie"],["Beurre de cacahuète",5,"g","Épicerie"],["Potiron",100,"g","Fruits et légumes"],["Tomate concassée",80,"g","Épicerie"],["Oignon",30,"g","Fruits et légumes"],["Ail",3,"g","Fruits et légumes"],["Carotte",40,"g","Fruits et légumes"],["Riz complet (cru)",40,"g","Épicerie"]]},"MAFE_03":{"p":"MAFE","r":"Sans Lactose","t":"Standard (Naturellement sans lactose)","i":"Utiliser de l'huile d'arachide ou de tournesol.","c":"Une option sûre et savoureuse au restaurant.","g":[["Poulet (cuisse désossée)",120,"g","Boucherie"],["Pâte d'arachide",25,"g","Épicerie"],["Tomate concassée",80,"g","Épicerie"],["Riz blanc (cru)",70,"g","Épicerie"],["Carotte",40,"g","Fruits et légumes"],["Oignon",30,"g","Fruits et légumes"],["Ail",3,"g","Fruits et légumes"]]},"MAFE_04":{"p":"MAFE","r":"Hyperprotéiné","t":"Poulet, Gambas ou Bœuf, Riz complet","i":"Mixer deux sources de protéines (Terre/Mer).","c":"Très haute densité nutritionnelle.","g":[["Poulet (cuisse désossée)",100,"g","Boucherie"],["Gambas",70,"g","Poissonnerie"],["Pâte d'arachide",25,"g","Épicerie"],["Tomate concassée",80,"g","Épicerie"],["Riz complet (cru)",60,"g","Épicerie"],["Oignon",30,"g","Fruits et légumes"],["Ail",3,"g","Fruits et légumes"],["Carotte",40,"g","Fruits et légumes"]]},"MAFE_05":{"p":"MAFE","r":"Sans Gluten","t":"Poulet, Pâte d'arachide, Tomate, Riz","i":"Choisir une pâte d'arachide 100 % arachide, sans additif.","c":"Naturellement sans gluten.","g":[["Poulet (cuisse désossée)",120,"g","Boucherie"],["Pâte d'arachide",25,"g","Épicerie"],["Tomate concassée",80,"g","Épicerie"],["Riz blanc (cru)",70,"g","Épicerie"],["Carotte",40,"g","Fruits et légumes"],["Oignon",30,"g","Fruits et légumes"],["Ail",3,"g","Fruits et légumes"]]},"MAFE_06":{"p":"MAFE","r":"Vegan","t":"Tofu ferme, Pâte d'arachide, Patate douce, Riz","i":"Dorer le tofu en cubes, puis mijoter avec la sauce arachide et la patate douce.","c":"Version végétale généreuse, riche en protéines.","g":[["Tofu ferme",125,"g","Produits végétaux"],["Pâte d'arachide",25,"g","Épicerie"],["Tomate concassée",80,"g","Épicerie"],["Patate douce",80,"g","Fruits et légumes"],["Riz blanc (cru)",70,"g","Épicerie"],["Oignon",30,"g","Fruits et légumes"],["Ail",3,"g","Fruits et légumes"],["Carotte",40,"g","Fruits et légumes"]]},"MAFE_07":{"p":"MAFE","r":"Sans Lactose + Sans Gluten","t":"Poulet, Pâte d'arachide 100 %, Tomate, Riz blanc, Carotte","i":"Choisir une pâte d'arachide 100 % arachide et cuire à l'huile d'arachide.","c":"Naturellement sans lactose, sans gluten si les produits sont bien choisis.","g":[["Poulet (cuisse désossée)",120,"g","Boucherie"],["Pâte d'arachide",25,"g","Épicerie"],["Tomate concassée",80,"g","Épicerie"],["Riz blanc (cru)",70,"g","Épicerie"],["Carotte",40,"g","Fruits et légumes"],["Oignon",30,"g","Fruits et légumes"],["Ail",3,"g","Fruits et légumes"]]}};
+/* [clé, nom, origine, couleur du plat, couleur de garniture] */
+const PLATS = [
+  ["BLANQ","Blanquette de veau","Cuisine française","#D9B95B","#5E9E5A"],
+  ["GRATIN","Gratin dauphinois","Dauphiné","#E2A436","#B8722A","Accompagnement"],
+  ["LASAG","Lasagnes bolognaise","Italie","#D5482D","#F2C14E"],
+  ["HACHI","Hachis parmentier","Cuisine française","#A86F3E","#F0D27A"],
+  ["CURRY","Poulet curry-coco","Inspiration indienne","#E9B21E","#3F9A5B"],
+  ["QUICH","Quiche lorraine","Lorraine","#E7B95A","#C0573A"],
+  ["COUSC","Couscous royal","Maghreb","#DA8E2A","#C8452E"],
+  ["COLOM","Colombo de poulet","Antilles","#E47A1C","#4E9F4B"],
+  ["MAFE","Mafé de poulet","Afrique de l'Ouest","#A8462B","#E9A23B"]
+];
+const CATS = ["Entrée","Plat","Accompagnement","Dessert","Gâteau et goûter","Glace"];
+const catOf = p => p[5] || "Plat";
+const PALETTE = [["#3F9A8C","#F2C14E"],["#B5527A","#F0D27A"],["#6C8E3A","#E9A23B"],["#C46A2E","#5E9E5A"],["#4F7FC0","#F2C14E"],["#D5482D","#5E9E5A"],["#8A5BB0","#E9A23B"]];
+const REG_COLOR = {"Standard":"#7A8A7F","Hypocalorique":"#2E9CC9","Sans Lactose":"#5F82E0","Hyperprotéiné":"#D24F36","Sans Gluten":"#D9A11C","Sans Lactose + Sans Gluten":"#9A68D6","Vegan":"#3B9B5E"};
+const REG_DESC = {
+  "Standard":"la recette d'origine",
+  "Hypocalorique":"moins de calories : on joue surtout sur les quantités et on remplace une partie des féculents et des matières grasses par des légumes",
+  "Sans Lactose":"aucun produit laitier animal (lait, crème, beurre, fromage, lactosérum caché dans certaines charcuteries), remplacés par des alternatives végétales ; les œufs et le lait de coco sont naturellement sans lactose",
+  "Hyperprotéiné":"plus de protéines (viande maigre, œufs, légumineuses) pour la satiété",
+  "Sans Gluten":"aucun blé, orge ni seigle : farine remplacée par de la fécule de maïs, pâtes et semoule sans gluten",
+  "Sans Lactose + Sans Gluten":"cumule les deux : aucun produit laitier animal et aucun blé, orge, seigle ni avoine non certifiée",
+  "Vegan":"aucun produit animal : ni viande, ni poisson, ni œuf, ni produit laitier, ni miel"
+};
+function plate(c1, c2, seed){
+  const pts = [[24,26],[38,24],[42,36],[28,40],[33,31]];
+  const dots = pts.map(([x,y],i) => `<circle cx="${x + ((seed*7+i*3)%5) - 2}" cy="${y + ((seed*5+i*7)%5) - 2}" r="${i===4?4:3}" fill="${i%2 ? c2 : "#FFFFFF"}" fill-opacity="${i%2 ? 1 : .55}"/>`).join("");
+  return `<svg class="plate" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="31" fill="var(--plate)"/><circle cx="32" cy="32" r="25" fill="var(--plate-rim)"/><circle cx="32" cy="32" r="20" fill="${c1}"/>${dots}</svg>`;
+}
+const REGIMES = ["Standard","Hypocalorique","Sans Lactose","Hyperprotéiné","Sans Gluten","Sans Lactose + Sans Gluten","Vegan"];
+const REG_LABEL = {"Sans Lactose":"Sans lactose","Sans Gluten":"Sans gluten","Sans Lactose + Sans Gluten":"Sans lactose & gluten"};
+const RAYONS = ["Fruits et légumes","Boucherie","Poissonnerie","Charcuterie","Crèmerie","Produits végétaux","Épicerie","Épices","Surgelés"];
+const UNITS = ["g","cl","ml","pièce"];
+/* Les 14 allergènes à déclaration obligatoire (réglementation européenne INCO). */
+const ALG = {gluten:"Gluten", lait:"Lait", oeuf:"Œuf", arachide:"Arachide", fruits_coque:"Fruits à coque", soja:"Soja", poisson:"Poisson",
+  crustaces:"Crustacés", mollusques:"Mollusques", sesame:"Sésame", celeri:"Céleri", moutarde:"Moutarde", lupin:"Lupin", sulfites:"Sulfites"};
+const ALG_KEYS = Object.keys(ALG);
+/* Ingrédients de la bibliothèque : allergènes fixés à la main, avec prudence (produits industriels courants). */
+const ING_ALG = {
+  "Allumettes végétales fumées":["soja","gluten"], "Beurre":["lait"], "Beurre de cacahuète":["arachide"], "Bouillon de légumes":["celeri","gluten"],
+  "Crème d'amande":["fruits_coque"], "Crème de soja cuisine":["soja"], "Crème fraîche":["lait"], "Curry en poudre":["moutarde"],
+  "Farine":["gluten"], "Fromage blanc 0%":["lait"], "Gambas":["crustaces"], "Gruyère râpé":["lait"], "Lait d'amande":["fruits_coque"],
+  "Lait d'avoine":["gluten"], "Lait de soja":["soja"], "Lait demi-écrémé":["lait"], "Lait entier":["lait"], "Lait écrémé":["lait"],
+  "Margarine végétale":["soja"], "Merguez":["sulfites"], "Plaques de lasagnes":["gluten","oeuf"], "Plaques de lasagnes (sans œuf)":["gluten"],
+  "Plaques de lasagnes sans gluten":["oeuf"], "Poudre de colombo":["moutarde"], "Protéines de soja texturées (sèches)":["soja"],
+  "Pâte brisée":["gluten","lait"], "Pâte brisée sans beurre":["gluten"], "Pâte brisée végétale":["gluten"], "Pâte d'arachide":["arachide"],
+  "Pâte sans gluten":["lait","oeuf"], "Raisins secs":["sulfites"], "Semoule (sèche)":["gluten"], "Semoule complète (sèche)":["gluten"],
+  "Tofu ferme":["soja"], "Tofu soyeux":["soja"], "Œuf":["oeuf"]
+};
+const ALG_RX = {
+  gluten: /\b(ble|farine(?!\s+de\s+(riz|mais|pois|sarrasin|chataigne|coco|millet|teff|manioc))|semoule(?!\s+de\s+mais)|pain|chapelure|orge|seigle|epeautre|boulgour|biscuit|avoine|pates?(?!\s+d.arachide)|lasagne|nouille|spaghetti|tagliatelle|macaroni|sauce soja)/,
+  lait: /(lait(?!\s+de\s+(coco|soja|riz|amande|avoine|noisette|noix|cajou))|creme(?!\s+de\s+(coco|soja|riz|amande|avoine|cajou|marron))|beurre(?!\s+de\s+(cacahuete|arachide|amande|noix|cajou|karite))|fromage|yaourt|skyr|mozzarella|parmesan|gruyere|emmental|comte|chevre|feta|ricotta|mascarpone|lactoserum|ghee|caseine)/,
+  oeuf: /(oeuf|mayonnaise)/, arachide: /(arachide|cacahuete)/,
+  fruits_coque: /(amande|noisette|noix(?!\s+de\s+(coco|muscade))|cajou|pistache|pecan|macadamia|praline)/,
+  soja: /(soja|tofu|tempeh|edamame|miso)/,
+  poisson: /(poisson|thon|saumon|cabillaud|sardine|anchois|colin|merlu|maquereau|truite|dorade|morue|nuoc)/,
+  crustaces: /(crevette|gambas|crabe|homard|langoust|ecrevisse)/,
+  mollusques: /(moule|calamar|encornet|seiche|poulpe|huitre|saint-jacques|bulot|escargot|palourde)/,
+  sesame: /(sesame|tahin)/, celeri: /(celeri|bouillon)/, moutarde: /(moutarde|colombo|curry)/, lupin: /lupin/,
+  sulfites: /(\bvin\b|vinaigre|raisins? sec|abricots? sec|merguez)/
+};
+let KNOWN_SET = null;
+function ingAlg(entry){
+  const [n] = entry;
+  if (ING_ALG[n]) return ING_ALG[n];
+  KNOWN_SET ||= new Set(KNOWN);
+  if (KNOWN_SET.has(n)) return [];
+  const t = norm(n).replace(/œ/g, "oe");
+  const found = ALG_KEYS.filter(k => ALG_RX[k].test(t) && !(k === "gluten" && /sans gluten/.test(t)));
+  const fromClaude = Array.isArray(entry[4]) ? entry[4].filter(k => ALG_KEYS.includes(k)) : [];
+  return [...new Set([...found, ...fromClaude])];
+}
+const recAlg = r => r ? [...new Set(r.g.flatMap(ingAlg))] : [];
+const algHits = r => recAlg(r).filter(k => state.allergies.includes(k));
+const algList = ks => ks.map(k => ALG[k].toLowerCase()).join(", ");
+const regLabel = r => REG_LABEL[r] || r;
+const norm = s => String(s).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
+const byPlat = {};
+for (const [id, r] of Object.entries(R)) (byPlat[r.p] ||= {})[r.r] = id;
+const KNOWN = [...new Set(Object.values(R).flatMap(r => r.g.map(x => x[0])))].sort((a,b) => a.localeCompare(b,"fr"));
+
+/* ---------- préférences de cet appareil (confort) ---------- */
+function lsGet(k, d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch(e){ return d; } }
+function lsSet(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+const state = { view:"plats", plat:null, regime: lsGet("regime","Standard"), persons: lsGet("persons",4), confirmClear:false, copyText:null,
+  vue: lsGet("vue","recette"), q:"", cat: lsGet("cat","Tout"), busy:false, err:null, confirmDel:false, draft:{nom:"", texte:"", pers:4, reg:"Standard", cat:""},
+  allergies: (lsGet("allergies", []) || []).filter(k => ALG_KEYS.includes(k)), algOpen:false, hideAlg: lsGet("hideAlg", false) };
+if (state.cat !== "Tout" && !CATS.includes(state.cat)) state.cat = "Tout";
+if (!REGIMES.includes(state.regime)) state.regime = "Standard";
+
+/* ---------- mes recettes (ajoutées avec Claude) ---------- */
+const validColor = (c, d) => /^#[0-9A-Fa-f]{6}$/.test(c || "") ? c : d;
+function cleanVersion(v){
+  if (!v || typeof v !== "object") return null;
+  const raw = Array.isArray(v.g) ? v.g : (Array.isArray(v.ingredients) ? v.ingredients : []);
+  const g = [];
+  for (const x of raw){
+    if (!Array.isArray(x)) continue;
+    let [n, q, u, ray] = x;
+    n = String(n || "").trim().slice(0, 60); q = Number(q); u = String(u || "").trim().toLowerCase();
+    if (["piece","pieces","pièces","pc","unité","unités"].includes(u)) u = "pièce";
+    if (!n || !(q > 0) || !UNITS.includes(u)) continue;
+    const al = Array.isArray(x[4]) ? x[4].filter(k => ALG_KEYS.includes(k)) : [];
+    g.push([n, Math.round(q * 100) / 100, u, RAYONS.includes(ray) ? ray : "Épicerie", al]);
+  }
+  if (!g.length) return null;
+  return { t: String(v.t ?? v.resume ?? "").slice(0, 300), i: String(v.i ?? v.instruction ?? "").slice(0, 700),
+           c: String(v.c ?? v.conseil ?? "").slice(0, 300), g, auto: v.auto !== false };
+}
+function cleanCustom(id, d){
+  if (!d || typeof d !== "object") return null;
+  const versions = {};
+  for (const reg of REGIMES){ const cv = cleanVersion(d.versions && d.versions[reg]); if (cv) versions[reg] = cv; }
+  if (!Object.keys(versions).length) return null;
+  return { id: String(id), nom: String(d.nom || "Ma recette").slice(0, 80), origine: String(d.origine || "").slice(0, 60),
+           c1: validColor(d.c1, "#3F9A8C"), c2: validColor(d.c2, "#F2C14E"), cat: CATS.includes(d.cat) ? d.cat : "Plat", versions, cree: Number(d.cree) || 0 };
+}
+/* Recettes ajoutées : celles de la propriétaire sont dans la base (visibles par tous ceux avec qui elle partage) ;
+   celles d'un ami qui ne peut pas écrire dans la base restent sur son téléphone. */
+let customsDb = [];
+let customsLocal = (lsGet("mesrecettes", []) || []).map(c => { const x = cleanCustom(c.id, c); return x && {...x, local:true}; }).filter(Boolean);
+let customs = [...customsLocal];
+const remerge = () => { customs = [...customsDb, ...customsLocal]; };
+let recCol = null, recWriting = Promise.resolve(), canRecDb = true, isAdmin = false;
+const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+function saveLocal(c){
+  customsLocal = [...customsLocal.filter(x => x.id !== c.id), {...c, local:true}];
+  lsSet("mesrecettes", customsLocal); remerge();
+}
+function saveCustom(c){
+  if (c.local || !recCol || !canRecDb) return saveLocal(c);
+  customsDb = [...customsDb.filter(x => x.id !== c.id), c]; remerge();
+  const body = {nom:c.nom, origine:c.origine, c1:c.c1, c2:c.c2, cat:c.cat, versions:c.versions, cree:c.cree};
+  recWriting = recWriting.then(() => recCol.doc(c.id).set(body)).catch(e => {
+    if (e && e.code === "invalid_argument"){
+      canRecDb = false; customsDb = customsDb.filter(x => x.id !== c.id); saveLocal(c); softRender();
+      toast("Ta recette est enregistrée sur ce téléphone.");
+    } else toast(e && e.code === "quota_exceeded" ? "Plus de place pour de nouvelles recettes : supprimes-en une." : "La recette n'a pas pu être enregistrée. Vérifie ta connexion.");
+  });
+}
+function deleteCustom(id){
+  const c = customs.find(x => x.id === id); if (!c) return;
+  const dead = store.meals.filter(m => m.rid.startsWith("u:" + id + ":")).map(m => m.id);
+  if (dead.length){
+    store.meals = store.meals.filter(m => !dead.includes(m.id));
+    const ch = {}; for (const k in store.checked) if (!dead.some(d => k.startsWith(d + "|"))) ch[k] = true;
+    store.checked = ch; persist();
+  }
+  if (c.local){ customsLocal = customsLocal.filter(x => x.id !== id); lsSet("mesrecettes", customsLocal); remerge(); return; }
+  customsDb = customsDb.filter(x => x.id !== id); remerge();
+  if (recCol) recWriting = recWriting.then(() => recCol.doc(id).delete()).catch(() => toast("La recette n'a pas pu être supprimée."));
+}
+const canDelete = c => !!c && (c.local || isAdmin);
+function getRec(rid){
+  if (R[rid]) return R[rid];
+  if (rid && rid.startsWith("u:")){
+    const cut = rid.indexOf(":", 2); const id = rid.slice(2, cut), reg = rid.slice(cut + 1);
+    const c = customs.find(x => x.id === id); const v = c && c.versions[reg];
+    if (v) return {p:"u:" + id, r:reg, t:v.t, i:v.i, c:v.c, g:v.g, auto:v.auto};
+  }
+  return null;
+}
+function allPlats(){
+  return [...PLATS, ...customs.slice().sort((a,b) => a.cree - b.cree).map(c => ["u:" + c.id, c.nom, c.origine || "Ma recette", c.c1, c.c2, c.cat])];
+}
+const platInfo = k => allPlats().find(p => p[0] === k);
+
+/* ---------- liste de courses : partagée si possible, sinon sur l'appareil ---------- */
+let store = lsGet("courses", {meals:[], checked:{}});
+let ref = null, mode = "local", writing = Promise.resolve();
+function persist(){
+  const body = {meals: store.meals, checked: store.checked};
+  if (ref){
+    writing = writing.then(() => ref.set(body)).catch(() => toast("La liste n'a pas pu être enregistrée. Vérifie ta connexion et réessaie."));
+  } else lsSet("courses", body);
+}
+
+/* ---------- branchements Claude (base de données + IA) ---------- */
+const hasClaude = () => !!(window.claude && window.claude.use);
+const sampleReady = (async () => { try { return hasClaude() ? await window.claude.use("sample") : null; } catch(e){ return null; } })();
+let sampleKnown = "pending";
+sampleReady.then(s => { sampleKnown = s ? "ok" : "none"; softRender(); });
+(async () => {
+  await null; /* laisser la page finir de se charger avant le premier affichage */
+  let db = null, user = null;
+  try { db = hasClaude() ? await window.claude.use("db") : null; } catch(e){ db = null; }
+  try { user = hasClaude() ? await window.claude.use("user") : null; } catch(e){ user = null; }
+  isAdmin = user ? await user.canEdit() : false;
+  if (!db) return softRender();
+  /* La liste de courses de la propriétaire reste privée : les personnes avec qui elle partage ont leur propre liste, sur leur téléphone. */
+  if (isAdmin){
+    ref = db.doc("courses/liste");
+    ref.onSnapshot(snap => {
+      const d = snap.exists ? snap.data() : null;
+      store = d ? {meals: [...(d.meals || [])], checked: {...(d.checked || {})}} : {meals:[], checked:{}};
+      mode = "shared"; softRender();
+    }, () => { ref = null; mode = "local"; store = lsGet("courses", {meals:[], checked:{}}); softRender(); });
+  }
+  recCol = db.collection("recettes");
+  recCol.onSnapshot(qs => {
+    customsDb = qs.docs.map(d => cleanCustom(d.id, d.data())).filter(Boolean); remerge();
+    softRender();
+  }, () => { recCol = null; customsDb = []; remerge(); softRender(); });
+})();
+
+/* ---------- consignes envoyées à Claude ---------- */
+const ING_RULES = `Règles pour les ingrédients :
+- Quantités POUR UNE SEULE PERSONNE (divise les quantités de la recette par son nombre de personnes), en nombres.
+- Unités autorisées : "g", "cl", "ml" ou "pièce", rien d'autre. Convertis : 1 cuillère à soupe = 15 ml (liquide) ou 15 g ; 1 cuillère à café = 5 ml ou 5 g ; 1 verre = 20 cl ; une pincée ou un sachet : estime en g.
+- Ne liste pas le sel, le poivre, l'eau ni l'huile de cuisson.
+- Un nom = un article qu'on achète au magasin : "Oignon" et non "oignon émincé". Ajoute "(cru)" pour le riz et le quinoa, "(sèche)" pour la semoule, "(sèches)" pour les légumineuses sèches ; "cuits" pour les légumineuses en boîte.
+- Quand c'est le même produit, reprends exactement un de ces noms : ${KNOWN.join(", ")}.
+- Rayon : exactement un parmi ${RAYONS.join(", ")}.
+Format d'une version : {"resume": "les ingrédients principaux en une ligne", "instruction": "la préparation en 2 à 4 phrases courtes", "conseil": "une phrase sur l'intérêt de cette version, sans promesse médicale", "ingredients": [["Oignon", 30, "g", "Fruits et légumes", []], ["Bouillon de légumes", 20, "cl", "Épicerie", ["celeri"]]]}
+Le 5e élément de chaque ingrédient liste les allergènes réglementaires qu'il contient, y compris cachés dans les produits industriels courants, avec ces codes : ${ALG_KEYS.join(", ")}.`;
+const avoidText = () => state.allergies.length ? `\nIMPORTANT : la personne est allergique à : ${algList(state.allergies)}. La version adaptée ne doit contenir AUCUN de ces allergènes, ni aucun ingrédient qui en contient souvent (produits industriels compris). Choisis des remplacements sûrs pour ces allergies.` : "";
+function createPrompt(texte, nom, pers, reg){
+  const two = reg !== "Standard";
+  return `Tu aides une famille française à ranger ses recettes dans une appli de cuisine.
+L'utilisateur a collé une recette trouvée sur Internet. Le texte peut contenir des éléments inutiles (publicités, commentaires, histoire de l'auteur) : ignore-les.
+${nom ? `Nom donné par l'utilisateur : ${nom}.` : "Donne au plat un nom court et clair."}
+La recette est prévue pour ${pers} personnes, sauf si le texte indique clairement un autre nombre : utilise alors celui du texte.
+Prépare ${two ? "deux versions" : "une version"} :
+- "Standard" : la recette d'origine.
+${two ? `- "${reg}" : la même recette adaptée au régime ${reg} (${REG_DESC[reg]}). Remplace les ingrédients exclus par des équivalents courants en supermarché français et ajuste la préparation si nécessaire.${avoidText()}` : ""}
+${ING_RULES}
+Réponds uniquement avec un objet JSON : {"nom": "...", "origine": "pays ou région d'origine du plat, en quelques mots", "categorie": "exactement un parmi ${CATS.join(", ")}", "versions": {"Standard": {...}${two ? `, "${reg}": {...}` : ""}}}
+Si le texte n'est pas une recette de cuisine, réponds {"erreur": "explication courte"}.
+
+Recette collée :
+"""
+${texte}
+"""`;
+}
+function adaptPrompt(nom, base, reg){
+  return `Voici une recette d'une appli de cuisine familiale française, au format JSON (quantités pour une personne) :
+${JSON.stringify({nom, resume: base.t, instruction: base.i, ingredients: base.g.map(x => x.slice(0,4))})}
+
+Adapte-la au régime "${reg}" : ${REG_DESC[reg]}. Remplace les ingrédients exclus par des équivalents courants en supermarché français et ajuste la préparation si nécessaire.${avoidText()}
+${ING_RULES}
+Réponds uniquement avec l'objet JSON de la version adaptée, au format ci-dessus.`;
+}
+function errText(e){
+  const c = e && e.code;
+  if (c === "not_recipe") return "Claude n'a pas trouvé de recette dans ce texte" + (e.message ? " : " + e.message : ".");
+  return ({
+    not_granted: "L'appli n'a pas l'autorisation d'utiliser Claude. Tu peux l'activer dans le menu Permissions de la page.",
+    sampling_disabled: "Claude n'est pas disponible pour ce compte.",
+    capability_disabled: "L'adaptation par Claude n'est pas disponible ici.",
+    capability_removed: "L'adaptation par Claude n'est pas disponible ici.",
+    not_declared: "L'adaptation par Claude n'est pas disponible ici.",
+    rate_limited: "Trop de demandes pour le moment, ou limite d'utilisation de Claude atteinte. Réessaie un peu plus tard.",
+    session_expired: "Reconnecte-toi à Claude, puis réessaie.",
+    prompt_too_large: "La recette est trop longue : garde seulement les ingrédients et les étapes.",
+    refused: "Claude n'a pas pu traiter ce texte. Garde seulement les ingrédients et les étapes, puis réessaie.",
+    invalid_json: "La réponse de Claude était incomplète. Réessaie.",
+    empty_completion: "Claude n'a rien répondu. Réessaie avec un texte plus court."
+  })[c] || "Un problème est survenu. Réessaie dans un instant.";
+}
+/* Formulaire Google d'avis des testeurs : recette et version préremplies. */
+const AVIS_URL = "https://docs.google.com/forms/d/e/1FAIpQLSd9IIlpR4vZ1C-HaVWWCis9YlZEUGUcR7CIrZ2WvW-sXaXh2w/viewform";
+const avisLink = (nom, reg) => AVIS_URL + "?usp=pp_url&entry.993727293=" + encodeURIComponent(nom) + "&entry.753695973=" + encodeURIComponent(regLabel(reg));
+const NO_CLAUDE = "L'ajout et l'adaptation avec Claude marchent seulement dans l'appli Claude, connectée à ton compte.";
+let ctl = null;
+async function createRecipe(){
+  const d = state.draft; const texte = d.texte.trim();
+  if (texte.length < 40){ state.err = "Colle le texte complet de la recette : les ingrédients et les étapes."; return render(); }
+  const s = await sampleReady;
+  if (!s){ state.err = NO_CLAUDE; return render(); }
+  state.busy = true; state.err = null; ctl = new AbortController(); render();
+  try {
+    const out = await s.json(createPrompt(texte.slice(0, 20000), d.nom.trim(), Math.max(1, Number(d.pers) || 4), d.reg), {signal: ctl.signal});
+    if (out && out.erreur) throw {code:"not_recipe", message:String(out.erreur).slice(0, 200)};
+    const pal = PALETTE[customs.length % PALETTE.length];
+    const c = cleanCustom(newId(), {nom: d.nom.trim() || (out && out.nom), origine: out && out.origine, c1: pal[0], c2: pal[1], cat: d.cat || (out && out.categorie), versions: out && out.versions, cree: Date.now()});
+    if (!c || !c.versions.Standard) throw {code:"invalid_json"};
+    saveCustom(c);
+    state.busy = false; state.draft = {nom:"", texte:"", pers:4, reg:state.regime, cat:""};
+    state.plat = "u:" + c.id; state.regime = c.versions[d.reg] ? d.reg : "Standard"; state.view = "plat";
+    render(); scrollTo(0, 0); toast("Recette ajoutée : " + c.nom);
+  } catch(e){
+    state.busy = false; state.err = e && e.code === "cancelled" ? null : errText(e); render();
+  }
+}
+async function adaptRecipe(){
+  const c = customs.find(x => "u:" + x.id === state.plat); if (!c) return;
+  const reg = state.regime; const base = c.versions.Standard || Object.values(c.versions)[0];
+  const s = await sampleReady;
+  if (!s){ state.err = NO_CLAUDE; return render(); }
+  state.busy = true; state.err = null; ctl = new AbortController(); render();
+  try {
+    const out = await s.json(adaptPrompt(c.nom, base, reg), {signal: ctl.signal});
+    const v = cleanVersion(out && (out.version || out));
+    if (!v) throw {code:"invalid_json"};
+    const fresh = customs.find(x => x.id === c.id) || c;
+    saveCustom({...fresh, versions: {...fresh.versions, [reg]: v}});
+    state.busy = false; render(); toast("Version " + regLabel(reg) + " ajoutée");
+  } catch(e){
+    state.busy = false; state.err = e && e.code === "cancelled" ? null : errText(e); render();
+  }
+}
+
+async function adaptAllergies(){
+  const p = platInfo(state.plat); if (!p) return;
+  const custom = p[0].startsWith("u:");
+  const rid = custom ? p[0] + ":" + state.regime : byPlat[p[0]][state.regime];
+  const base = getRec(rid); if (!base) return;
+  const s = await sampleReady;
+  if (!s){ state.err = NO_CLAUDE; return render(); }
+  state.busy = true; state.err = null; ctl = new AbortController(); render();
+  try {
+    const reg = state.regime;
+    const prompt = `Voici une recette d'une appli de cuisine familiale française, version « ${reg} », au format JSON (quantités pour une personne) :
+${JSON.stringify({nom: p[1], resume: base.t, instruction: base.i, ingredients: base.g.map(x => x.slice(0,4))})}
+
+Adapte-la pour une personne allergique à : ${algList(state.allergies)}.${reg !== "Standard" ? ` Garde aussi les contraintes du régime ${reg} (${REG_DESC[reg]}).` : ""} Elle ne doit contenir AUCUN de ces allergènes, ni aucun ingrédient qui en contient souvent (produits industriels compris). Choisis des remplacements sûrs et courants en supermarché français, et ajuste la préparation si nécessaire. Garde le goût et l'esprit du plat.
+${ING_RULES}
+Réponds uniquement avec l'objet JSON de la version adaptée, au format ci-dessus.`;
+    const out = await s.json(prompt, {signal: ctl.signal});
+    const v = cleanVersion(out && (out.version || out));
+    if (!v) throw {code:"invalid_json"};
+    const pal = PALETTE[customs.length % PALETTE.length];
+    const c = cleanCustom(newId(), {nom: p[1] + " · adapté", origine: "Sans " + algList(state.allergies), c1: p[3] || pal[0], c2: p[4] || pal[1], cat: catOf(p), versions: {[reg]: v}, cree: Date.now()});
+    if (!c) throw {code:"invalid_json"};
+    saveCustom(c);
+    state.busy = false; state.plat = "u:" + c.id; render(); scrollTo(0,0); toast("Version adaptée à tes allergies créée");
+  } catch(e){
+    state.busy = false; state.err = e && e.code === "cancelled" ? null : errText(e); render();
+  }
+}
+
+/* ---------- quantités ---------- */
+const nf1 = new Intl.NumberFormat("fr-FR",{maximumFractionDigits:1});
+const nf2 = new Intl.NumberFormat("fr-FR",{maximumFractionDigits:2});
+function fmt(q, u, buying){
+  if (u === "pièce"){ const n = buying ? Math.ceil(q - 1e-9) : q; return (buying ? n : nf2.format(n)) + (n > 1 ? " pièces" : " pièce"); }
+  if (u === "g"){ if (q >= 1000) return nf1.format(q/1000) + " kg"; if (q >= 100) return Math.round(q/10)*10 + " g"; if (q >= 10) return Math.round(q) + " g"; return nf1.format(q) + " g"; }
+  if (u === "cl"){ if (q >= 100) return nf1.format(q/100) + " L"; return nf1.format(q) + " cl"; }
+  if (u === "ml"){ if (q >= 1000) return nf1.format(q/1000) + " L"; return Math.round(q) + " ml"; }
+  return nf1.format(q) + " " + u;
+}
+function shopping(){
+  const m = new Map();
+  for (const meal of store.meals){
+    const r = getRec(meal.rid); if (!r) continue;
+    for (const [n,q,u,ray] of r.g){
+      const k = n + "|" + u;
+      const e = m.get(k) || {k, n, u, ray, q:0, parts:[]};
+      e.q += q * meal.n; e.parts.push(meal.id + "|" + k); m.set(k, e);
+    }
+  }
+  return [...m.values()];
+}
+/* Une case cochée = un ingrédient d'un repas. Vue par rayon : coché si tous les repas qui l'utilisent le sont. */
+const isDone = parts => parts.length > 0 && parts.every(p => store.checked[p]);
+const rayIdx = r => { const i = RAYONS.indexOf(r); return i < 0 ? 99 : i; };
+const sortRay = (a, b) => rayIdx(a.ray) - rayIdx(b.ray) || a.n.localeCompare(b.n, "fr");
+function mealItems(meal){
+  const r = getRec(meal.rid); if (!r) return [];
+  return r.g.map(([n,q,u,ray]) => { const k = n + "|" + u; return {n, u, ray, q: q * meal.n, parts:[meal.id + "|" + k]}; }).sort(sortRay);
+}
+function mealTitle(meal){
+  const r = getRec(meal.rid); if (!r) return "Recette supprimée";
+  const p = platInfo(r.p); return (p ? p[1] : "Recette") + " · " + regLabel(r.r) + " · " + meal.n + " pers.";
+}
+function itemRow(i, cid){
+  const done = isDone(i.parts);
+  return `<div class="item${done?" done":""}"><input type="checkbox" id="${cid}" data-chk="${esc(i.parts.join("¦"))}" ${done?"checked":""}><label for="${cid}"><span>${esc(i.n)}${state.vue==="recette" ? `<span class="ray">${esc(i.ray)}</span>` : ""}</span><span class="qty">${fmt(i.q,i.u,true)}</span></label></div>`;
+}
+
+/* ---------- rendu ---------- */
+const app = document.getElementById("app");
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function updateChrome(){
+  document.getElementById("tab-plats").setAttribute("aria-current", state.view !== "liste" ? "page" : "false");
+  document.getElementById("tab-liste").setAttribute("aria-current", state.view === "liste" ? "page" : "false");
+  const b = document.getElementById("badge"); b.textContent = store.meals.length; b.hidden = !store.meals.length;
+}
+/* Une mise à jour venue d'ailleurs ne doit pas effacer un formulaire en cours de saisie. */
+function softRender(){ if (state.view === "ajout") return updateChrome(); render(); }
+function render(){
+  updateChrome();
+  if (state.view === "plat") return renderPlat();
+  if (state.view === "liste") return renderListe();
+  if (state.view === "ajout") return renderAjout();
+  renderPlats();
+}
+function regimeChips(attr = "data-reg", current = state.regime){
+  return `<div class="chips" role="group" aria-label="Régime">${REGIMES.map(r =>
+    `<button class="chip" type="button" ${attr}="${esc(r)}" aria-pressed="${r===current}" style="--reg:${REG_COLOR[r]}"><span class="dot"></span>${esc(regLabel(r))}</button>`).join("")}</div>`;
+}
+function catChips(attr, current, withAll){
+  const all = allPlats(); const count = c => all.filter(p => catOf(p) === c).length;
+  return `<div class="chips" role="group" aria-label="Catégorie">${(withAll ? ["Tout", ...CATS] : CATS).map(c =>
+    `<button class="chip" type="button" ${attr}="${esc(c)}" aria-pressed="${c===current}">${esc(c)}${withAll ? ` <span class="n">${c === "Tout" ? all.length : count(c)}</span>` : ""}</button>`).join("")}</div>`;
+}
+
+function platTiles(){
+  const q = norm(state.q || "");
+  const list = allPlats().map((p,i) => [p,i]).filter(([p]) => (state.cat === "Tout" || catOf(p) === state.cat) && (!q || norm(p[1] + " " + p[2] + " " + catOf(p)).includes(q)));
+  const add = `<button class="addtile" type="button" data-act="new"><span class="plus" aria-hidden="true">+</span>Ajouter une recette<small>Colle une recette d'Internet, Claude l'adapte à ton régime</small></button>`;
+  if (!list.length) return `<p class="none">${state.q ? `Aucune recette ne correspond à « ${esc(state.q)} »` : `Pas encore de recette dans « ${esc(state.cat)} »`}${state.cat !== "Tout" && state.q ? ` dans « ${esc(state.cat)} »` : ""}. Ajoute la première :</p>` + add;
+  return list.map(([[k,name,orig,c1,c2],i]) => {
+    const custom = k.startsWith("u:");
+    const rec = custom ? getRec(k + ":" + state.regime) : R[byPlat[k][state.regime]];
+    const has = !custom || rec;
+    const hits = has ? algHits(rec) : [];
+    if (hits.length && state.hideAlg) return "";
+    return `
+      <button class="plat" type="button" data-plat="${esc(k)}" style="--dish:${c1};--reg:${has ? REG_COLOR[state.regime] : "transparent"}">
+        ${plate(c1,c2,i)}
+        ${custom ? `<span class="mine">${(customs.find(x => "u:" + x.id === k) || {}).local || isAdmin ? "Ma recette" : "Recette ajoutée"}</span>` : ""}
+        <h2>${esc(name)}</h2><span class="orig">${esc(orig)}</span>
+        <span class="tag">${has ? esc(regLabel(state.regime)) : "À adapter"}</span>
+        ${hits.length ? `<span class="tag bad">Contient : ${esc(algList(hits))}</span>` : ""}
+      </button>`; }).join("") + add;
+}
+function allergyPanel(){
+  const a = state.allergies;
+  const head = `<div class="algbar"><span><span class="eyebrow">Allergies</span><br><strong>${a.length ? "Sans " + esc(algList(a)) : "Aucune allergie indiquée"}</strong></span>
+    <button class="ghost" type="button" data-act="alg-open" aria-expanded="${state.algOpen}">${state.algOpen ? "Fermer" : a.length ? "Modifier" : "Indiquer"}</button></div>`;
+  if (!state.algOpen) return head;
+  return head + `<div class="algpanel">
+    <div class="chips" role="group" aria-label="Allergènes">${ALG_KEYS.map(k => `<button class="chip" type="button" data-alg="${k}" aria-pressed="${a.includes(k)}">${esc(ALG[k])}</button>`).join("")}</div>
+    <label class="check"><input type="checkbox" id="hide-alg" ${state.hideAlg ? "checked" : ""}> Masquer les recettes qui en contiennent</label>
+    <p class="status">« Lait » couvre aussi l'allergie aux protéines de lait : un produit « sans lactose » en contient toujours. L'appli repère les allergènes à partir des noms d'ingrédients : vérifie toujours les étiquettes, y compris « peut contenir des traces de… ».</p>
+  </div>`;
+}
+function renderPlats(){
+  app.innerHTML = `
+    <header class="welcome"><span class="sun" aria-hidden="true"></span><span class="eyebrow" style="color:inherit;opacity:.85">Recettes en famille</span>
+      <h1>Qu'est-ce qu'on mange ?</h1><p>${allPlats().length} recettes. Choisis pour qui tu cuisines, puis une recette.</p></header>
+    <section class="sect"><span class="eyebrow">Pour qui on cuisine ?</span>${regimeChips()}</section>
+    <section class="sect">${allergyPanel()}</section>
+    <section class="sect"><span class="eyebrow">Catégorie</span>${catChips("data-cat", state.cat, true)}</section>
+    <section class="sect"><label class="eyebrow" for="q">Chercher une recette</label>
+      <input class="search" id="q" type="search" placeholder="Colombo, quiche, Antilles…" value="${esc(state.q || "")}" autocomplete="off"></section>
+    <section class="plats" id="grid" aria-label="Plats">${platTiles()}</section>`;
+}
+function busyBox(msg){
+  return `<div class="busy" role="status"><span class="spin" aria-hidden="true"></span><span>${msg}</span><button class="ghost" type="button" data-act="stop">Arrêter</button></div>`;
+}
+function renderPlat(){
+  const plats = allPlats(); const idx = plats.findIndex(p => p[0] === state.plat);
+  if (idx < 0){ state.view = "plats"; return renderPlats(); }
+  const [k,name,orig,c1,c2] = plats[idx]; const cat = catOf(plats[idx]);
+  const custom = k.startsWith("u:");
+  const rid = custom ? k + ":" + state.regime : byPlat[k][state.regime];
+  const r = getRec(rid); const n = state.persons;
+  const err = state.err ? `<p class="err" role="alert">${esc(state.err)}</p>` : "";
+  let body;
+  if (!r){
+    body = `<section class="sect"><div class="adapt">
+        <strong>Pas encore de version « ${esc(regLabel(state.regime))} » pour ce plat.</strong>
+        <p>Claude peut l'adapter à partir de la recette d'origine. Ça prend jusqu'à une minute.</p>
+        ${state.busy ? busyBox("Claude adapte la recette…") : `<button class="cta" type="button" data-act="adapt"${sampleKnown === "none" ? " disabled" : ""}>Adapter avec Claude</button>`}
+        ${sampleKnown === "none" ? `<p>${NO_CLAUDE}</p>` : ""}${err}
+      </div></section>`;
+  } else {
+    const warn = r.auto ? `<p class="warn">${r.r === "Standard" ? "Recette importée par Claude : vérifie les quantités." : "Adaptation automatique par Claude, non vérifiée par une diététicienne. En cas d'allergie, vérifie toujours les étiquettes."}</p>` : "";
+    const hits = algHits(r);
+    const algBox = !state.allergies.length ? "" : hits.length
+      ? `<div class="danger" role="alert"><strong>Attention : cette version contient ${esc(algList(hits))}.</strong>
+          <p>${hits.map(k => esc(ALG[k]) + " : " + esc(r.g.filter(x => ingAlg(x).includes(k)).map(x => x[0]).join(", "))).join("<br>")}</p>
+          ${state.busy ? busyBox("Claude adapte la recette à tes allergies…") : `<button class="cta" type="button" data-act="alg-adapt"${sampleKnown === "none" ? " disabled" : ""}>Adapter à mes allergies avec Claude</button>`}
+          ${sampleKnown === "none" ? `<p>${NO_CLAUDE}</p>` : ""}${err}</div>`
+      : `<p class="okbox">Aucun de tes allergènes (${esc(algList(state.allergies))}) dans les ingrédients. Vérifie quand même les étiquettes.</p>`;
+    body = `
+    <section class="sect">${algBox}</section>
+    <section class="sect">
+      <div class="persons"><span class="lbl">Nombre de personnes</span>
+        <button class="step" type="button" data-step="-1" aria-label="Une personne de moins">−</button>
+        <output aria-live="polite">${n}</output>
+        <button class="step" type="button" data-step="1" aria-label="Une personne de plus">+</button></div>
+      ${warn}
+    </section>
+    <section class="sect"><span class="eyebrow">Ingrédients pour ${n} ${n>1?"personnes":"personne"}</span>
+      <div class="card">${r.g.map(x => { const [nm,q,u,ray] = x; const bad = ingAlg(x).filter(k => state.allergies.includes(k));
+        return `<div class="ing${bad.length ? " alrg" : ""}"><span>${esc(nm)}<span class="ray">${bad.length ? "Contient : " + esc(algList(bad)) : esc(ray)}</span></span><span class="qty">${fmt(q*n,u,false)}</span></div>`; }).join("")}</div>
+      <span class="status">Sel, poivre, huile de cuisson et eau ne sont pas comptés.</span>
+    </section>
+    <section class="sect"><span class="eyebrow">Comment faire</span>
+      <div class="note"><strong>${esc(r.i)}</strong>${r.c ? `<p>${esc(r.c)}</p>` : ""}</div>
+    </section>
+    <section class="sect"><button class="cta" type="button" data-add="${esc(rid)}">Ajouter à la liste de courses</button>
+      <a class="avis" href="${esc(avisLink(name, state.regime))}" target="_blank" rel="noopener">Tu l'as cuisinée ? Donne ton avis</a>
+      <span class="status">Ouvre le formulaire d'avis, avec la recette et la version déjà remplies.</span></section>`;
+  }
+  const del = custom && canDelete(customs.find(x => "u:" + x.id === k)) ? `<section class="sect"><div class="bar">
+      ${state.confirmDel ? `<div class="confirm"><span>Supprimer « ${esc(name)} » et toutes ses versions ?</span><button class="ghost danger" type="button" data-act="del-yes">Oui, supprimer</button><button class="ghost" type="button" data-act="del-no">Annuler</button></div>`
+        : `<button class="ghost danger" type="button" data-act="del">Supprimer cette recette</button>`}</div></section>` : "";
+  app.innerHTML = `
+    <header class="top"><button class="back" type="button" data-go="plats">← Recettes</button><h1>${esc(name)}</h1></header>
+    <section class="hero" style="--dish:${c1}">${plate(c1,c2,idx)}<div><span class="eyebrow">${esc(cat)} · ${esc(orig)}</span><h2>${esc(regLabel(state.regime))}</h2></div></section>
+    <section class="sect">${regimeChips()}
+      ${/Sans Lactose/.test(state.regime) ? `<span class="status">« Sans lactose » ne convient pas à une allergie aux protéines de lait : coche « Lait » dans tes allergies, sur l'accueil.</span>` : ""}</section>
+    ${body}${del}`;
+}
+function renderAjout(){
+  const d = state.draft;
+  const err = state.err ? `<p class="err" role="alert">${esc(state.err)}</p>` : "";
+  app.innerHTML = `
+    <header class="top"><button class="back" type="button" data-go="plats">← Recettes</button><h1>Ajouter une recette</h1></header>
+    <section class="sect"><p class="lead">Colle une recette trouvée sur Internet : les ingrédients et les étapes. Claude la range dans l'appli, calcule les quantités par personne et l'adapte au régime choisi.</p>
+      ${sampleKnown === "none" ? `<p class="warn">${NO_CLAUDE}</p>` : ""}</section>
+    <section class="sect form">
+      <label class="eyebrow" for="f-nom">Nom du plat (facultatif)</label>
+      <input class="field" id="f-nom" type="text" maxlength="80" placeholder="Ex. : Poulet yassa" value="${esc(d.nom)}">
+      <label class="eyebrow" for="f-texte">Texte de la recette</label>
+      <textarea class="field" id="f-texte" placeholder="Ingrédients : …&#10;Préparation : …">${esc(d.texte)}</textarea>
+      <label class="eyebrow" for="f-pers">La recette est prévue pour combien de personnes ?</label>
+      <input class="field" id="f-pers" type="number" min="1" max="30" inputmode="numeric" value="${esc(d.pers)}">
+    </section>
+    <section class="sect"><span class="eyebrow">Catégorie (facultatif)</span>${catChips("data-fcat", d.cat, false)}
+      <span class="status">Si tu ne choisis rien, Claude la devine.</span></section>
+    <section class="sect"><span class="eyebrow">L'adapter pour</span>${regimeChips("data-freg", d.reg)}
+      <span class="status">« Standard » garde la recette telle quelle. Tu pourras ajouter d'autres régimes ensuite.</span></section>
+    <section class="sect">
+      ${state.busy ? busyBox("Claude lit et adapte la recette… (jusqu'à une minute)") : `<button class="cta" type="button" data-act="create"${sampleKnown === "none" ? " disabled" : ""}>Créer avec Claude</button>`}
+      ${err}
+      <span class="status">Chaque recette créée utilise un peu de ton forfait Claude.</span>
+    </section>`;
+}
+function renderListe(){
+  const items = shopping();
+  const shown = state.vue === "recette" ? store.meals.flatMap(mealItems) : items;
+  const total = shown.length, done = shown.filter(i => isDone(i.parts)).length;
+  const meals = store.meals.map(m =>
+    `<span class="meal">${esc(mealTitle(m))}<button type="button" data-rm="${esc(m.id)}" aria-label="Retirer ce repas">×</button></span>`).join("");
+  const groups = state.vue === "recette"
+    ? store.meals.map((m, mi) => { const its = mealItems(m); return its.length ? `<div class="rayon"><h3>${esc(mealTitle(m))}</h3><div class="card">${its.map((i,ix) => itemRow(i, "m" + mi + "-" + ix)).join("")}</div></div>` : ""; }).join("")
+    : RAYONS.map((ray, ri) => {
+        const its = items.filter(i => i.ray === ray).sort(sortRay);
+        if (!its.length) return "";
+        return `<div class="rayon"><h3>${esc(ray)}</h3><div class="card">${its.map((i,ix) => itemRow(i, "r" + ri + "-" + ix)).join("")}</div></div>`;
+      }).join("");
+  const toggle = `<div class="chips" role="group" aria-label="Classer la liste">
+      <button class="chip" type="button" data-vue="recette" aria-pressed="${state.vue==="recette"}">Par recette</button>
+      <button class="chip" type="button" data-vue="rayon" aria-pressed="${state.vue==="rayon"}">Par rayon</button></div>`;
+  app.innerHTML = `
+    <header class="top"><h1>Liste de courses</h1></header>
+    ${!store.meals.length ? `<section class="sect"><div class="empty">Ta liste est vide.<br>Ouvre un plat, choisis le régime et le nombre de personnes, puis touche « Ajouter à la liste de courses ».</div></section>` : `
+    <section class="sect"><span class="eyebrow">Repas prévus</span><div class="meals">${meals}</div></section>
+    <section class="sect"><span class="eyebrow">Classer la liste</span>${toggle}</section>
+    <section class="sect"><div class="bar"><span class="status">${done} sur ${total} articles dans le panier · ${mode==="shared" ? "liste synchronisée" : "liste enregistrée sur cet appareil"}</span></div>
+      <div class="bar"><button class="ghost" type="button" data-act="copy">Copier la liste</button>
+      <button class="ghost" type="button" data-act="uncheck">Tout décocher</button>
+      <button class="ghost danger" type="button" data-act="clear">Vider la liste</button></div>
+      ${state.confirmClear ? `<div class="confirm"><span>Retirer tous les repas et articles ?</span><button class="ghost danger" type="button" data-act="clear-yes">Oui, vider</button><button class="ghost" type="button" data-act="clear-no">Annuler</button></div>` : ""}
+      ${state.copyText !== null ? `<label class="status" for="copy-box">Sélectionne le texte et copie-le :</label><textarea class="copy" id="copy-box" readonly>${esc(state.copyText)}</textarea>` : ""}
+    </section>
+    <section class="sect">${groups}</section>`}`;
+  const box = document.getElementById("copy-box"); if (box){ box.focus(); box.select(); }
+}
+function listText(){
+  const line = i => "- " + i.n + " : " + fmt(i.q,i.u,true);
+  if (state.vue === "recette"){
+    return store.meals.map(m => { const its = mealItems(m).filter(i => !isDone(i.parts));
+      return its.length ? mealTitle(m).toUpperCase() + "\n" + its.map(line).join("\n") : ""; }).filter(Boolean).join("\n\n");
+  }
+  const items = shopping();
+  return RAYONS.map(ray => { const its = items.filter(i => i.ray === ray && !isDone(i.parts)).sort(sortRay);
+    return its.length ? ray.toUpperCase() + "\n" + its.map(line).join("\n") : ""; })
+    .filter(Boolean).join("\n\n");
+}
+let toastTimer;
+function toast(msg){ const t = document.getElementById("toast"); t.textContent = msg; t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => t.hidden = true, 2600); }
+function go(view){ state.view = view; state.err = null; state.confirmDel = false; state.confirmClear = false; state.copyText = null; render(); scrollTo(0,0); }
+
+/* ---------- actions ---------- */
+document.addEventListener("click", e => {
+  const el = e.target.closest("button"); if (!el || el.disabled) return;
+  if (el.id === "tab-plats"){ if (!state.busy) go("plats"); return; }
+  if (el.id === "tab-liste"){ if (!state.busy) go("liste"); return; }
+  const d = el.dataset;
+  if (d.reg){ state.regime = d.reg; state.err = null; lsSet("regime", d.reg); render(); return; }
+  if (d.freg){ state.draft.reg = d.freg; render(); return; }
+  if (d.alg){ const a = state.allergies; state.allergies = a.includes(d.alg) ? a.filter(k => k !== d.alg) : [...a, d.alg]; lsSet("allergies", state.allergies); render(); return; }
+  if (d.fcat){ state.draft.cat = state.draft.cat === d.fcat ? "" : d.fcat; render(); return; }
+  if (d.cat){ state.cat = d.cat; lsSet("cat", d.cat); const g = document.getElementById("grid"); render(); return; }
+  if (d.plat){ state.plat = d.plat; go("plat"); return; }
+  if (d.go){ if (!state.busy) go(d.go); return; }
+  if (d.step){ state.persons = Math.min(12, Math.max(1, state.persons + Number(d.step))); lsSet("persons", state.persons); render(); return; }
+  if (d.add){
+    const r = getRec(d.add); if (!r) return;
+    store.meals = [...store.meals, {id: newId(), rid: d.add, n: state.persons}];
+    persist(); render();
+    toast("Ajouté : " + platInfo(r.p)[1] + " · " + regLabel(r.r) + " · " + state.persons + " pers.");
+    return;
+  }
+  if (d.vue){ state.vue = d.vue; lsSet("vue", d.vue); state.copyText = null; render(); return; }
+  if (d.rm){
+    const checked = {}; for (const k in store.checked) if (!k.startsWith(d.rm + "|")) checked[k] = true;
+    store.meals = store.meals.filter(m => m.id !== d.rm); store.checked = checked; persist(); render(); return;
+  }
+  switch (d.act){
+    case "new": state.draft.reg = state.regime; go("ajout"); return;
+    case "create": createRecipe(); return;
+    case "adapt": adaptRecipe(); return;
+    case "alg-adapt": adaptAllergies(); return;
+    case "alg-open": state.algOpen = !state.algOpen; render(); return;
+    case "stop": if (ctl) ctl.abort(); return;
+    case "del": state.confirmDel = true; render(); return;
+    case "del-no": state.confirmDel = false; render(); return;
+    case "del-yes": { const id = state.plat.slice(2); const c = customs.find(x => x.id === id); deleteCustom(id); go("plats"); toast("Recette supprimée" + (c ? " : " + c.nom : "")); return; }
+    case "uncheck": store.checked = {}; persist(); render(); return;
+    case "clear": state.confirmClear = true; render(); return;
+    case "clear-no": state.confirmClear = false; render(); return;
+    case "clear-yes": store = {meals:[], checked:{}}; state.confirmClear = false; state.copyText = null; persist(); render(); toast("Liste vidée"); return;
+    case "copy": {
+      const text = listText();
+      if (navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(text).then(() => toast("Liste copiée : tu peux la coller dans WhatsApp"), () => { state.copyText = text; render(); });
+      } else { state.copyText = text; render(); }
+    }
+  }
+});
+document.addEventListener("input", e => {
+  const id = e.target.id;
+  if (id === "q"){ state.q = e.target.value; const g = document.getElementById("grid"); if (g) g.innerHTML = platTiles(); return; }
+  if (id === "f-nom") state.draft.nom = e.target.value;
+  if (id === "f-texte") state.draft.texte = e.target.value;
+  if (id === "f-pers") state.draft.pers = e.target.value;
+});
+document.addEventListener("change", e => {
+  if (e.target.id === "hide-alg"){ state.hideAlg = e.target.checked; lsSet("hideAlg", state.hideAlg); render(); return; }
+  const k = e.target.dataset && e.target.dataset.chk; if (!k) return;
+  const checked = {...store.checked};
+  for (const p of k.split("¦")){ if (e.target.checked) checked[p] = true; else delete checked[p]; }
+  store.checked = checked; persist(); render();
+});
+render();
+</script>
+
+</body>
+</html>
