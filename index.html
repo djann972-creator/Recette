@@ -148,6 +148,39 @@ input.field[type=number]{max-width:120px}
 .avis{display:block;text-align:center;border:2px solid var(--accent);color:var(--accent);border-radius:var(--radius);padding:13px;font-weight:700;text-decoration:none}
 .avis:hover{background:var(--accent-soft)}
 
+.legal{max-width:720px;margin:28px auto 0;text-align:center;font-size:.78rem;color:var(--muted)}
+
+/* Mesures maison et planning */
+.qty{display:flex;flex-direction:column;align-items:flex-end;text-align:right}
+.hm{font-size:.78rem;font-weight:400;color:var(--muted)}
+.week{gap:12px}
+.day{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:10px 14px}
+.day h3{font-size:1.05rem;font-weight:700;padding-block:2px 6px}
+.slot{display:flex;gap:10px;align-items:flex-start;border-top:1px solid var(--line);padding-block:8px}
+.mom{width:44px;flex:none;font-size:.82rem;font-weight:700;color:var(--muted);padding-top:6px;text-transform:capitalize}
+.slotbody{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
+.mrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.mlink{flex:1 1 150px;min-width:0;text-align:left;border:0;background:none;padding:4px 0;font-weight:700;color:var(--accent)}
+.mini{border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:8px;padding:5px 6px;font:inherit;font-size:.85rem;max-width:150px}
+.x{border:0;background:var(--accent-soft);color:var(--accent);width:28px;height:28px;border-radius:50%;font-weight:700;flex:none}
+.pick{align-self:flex-start;border:1.5px dashed var(--line);background:transparent;color:var(--muted);border-radius:10px;padding:6px 10px;font-size:.88rem}
+select.field{appearance:auto}
+
+/* Carnet et impression */
+.carnet{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.fav[aria-pressed="true"]{background:color-mix(in srgb,var(--danger) 12%,var(--surface));border-color:var(--danger);color:var(--danger)}
+.stars{display:flex;align-items:center;gap:2px}
+.stars button{border:0;background:none;font-size:1.6rem;line-height:1;color:var(--spice);padding:2px 3px}
+.stars .status{margin-left:8px}
+.linkish{border:0;background:none;color:var(--accent);text-decoration:underline;padding:0;font-size:inherit}
+textarea.field.small{min-height:70px}
+@media print{
+  .noprint,.tabs,.toast{display:none!important}
+  body{background:#fff;color:#000;padding:0}
+  .top{position:static;border:0}
+  .hero,.card,.note{break-inside:avoid;background:#fff;border:1px solid #ccc}
+}
+
 /* Onglets du bas */
 .tabs{position:fixed;left:0;right:0;bottom:0;z-index:10;background:var(--surface);border-top:1px solid var(--line);display:flex;justify-content:center;gap:8px;
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-top:8px;padding-bottom:calc(8px + env(safe-area-inset-bottom,0px))}
@@ -159,8 +192,10 @@ input.field[type=number]{max-width:120px}
 </style>
 
 <div class="wrap" id="app"></div>
+<footer class="legal">© 2026 Djann — Tous droits réservés</footer>
 <nav class="tabs" aria-label="Navigation">
   <button class="tab" id="tab-plats" type="button">Recettes</button>
+  <button class="tab" id="tab-semaine" type="button">Semaine</button>
   <button class="tab" id="tab-liste" type="button">Courses <span class="badge" id="badge" hidden>0</span></button>
 </nav>
 <div class="toast" id="toast" role="status" hidden></div>
@@ -253,7 +288,7 @@ const KNOWN = [...new Set(Object.values(R).flatMap(r => r.g.map(x => x[0])))].so
 function lsGet(k, d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch(e){ return d; } }
 function lsSet(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
 const state = { view:"plats", plat:null, regime: lsGet("regime","Standard"), persons: lsGet("persons",4), confirmClear:false, copyText:null,
-  vue: lsGet("vue","recette"), q:"", cat: lsGet("cat","Tout"), busy:false, err:null, confirmDel:false, draft:{nom:"", texte:"", pers:4, reg:"Standard", cat:""},
+  vue: lsGet("vue","recette"), q:"", cat: lsGet("cat","Tout"), carnetFilter:"tout", recipeCopy:null, busy:false, err:null, confirmDel:false, draft:{nom:"", texte:"", pers:4, reg:"Standard", cat:""},
   allergies: (lsGet("allergies", []) || []).filter(k => ALG_KEYS.includes(k)), algOpen:false, hideAlg: lsGet("hideAlg", false) };
 if (state.cat !== "Tout" && !CATS.includes(state.cat)) state.cat = "Tout";
 if (!REGIMES.includes(state.regime)) state.regime = "Standard";
@@ -499,6 +534,90 @@ Réponds uniquement avec l'objet JSON de la version adaptée, au format ci-dessu
   }
 }
 
+/* ---------- mesures maison : « ≈ ½ courgette » ---------- */
+/* [unité de la recette, quantité par pièce/contenant/cuillère, singulier, pluriel, type] — poids moyens indicatifs */
+const HOUSE = {
+  "Courgette":["g",200,"courgette","courgettes","piece"], "Carotte":["g",100,"carotte","carottes","piece"],
+  "Oignon":["g",100,"oignon","oignons","piece"], "Ail":["g",5,"gousse","gousses","piece"],
+  "Pomme de terre":["g",150,"pomme de terre","pommes de terre","piece"], "Aubergine":["g",250,"aubergine","aubergines","piece"],
+  "Chou-fleur":["g",800,"chou-fleur","choux-fleurs","piece"], "Christophine":["g",300,"christophine","christophines","piece"],
+  "Poireau":["g",200,"poireau","poireaux","piece"], "Patate douce":["g",300,"patate douce","patates douces","piece"],
+  "Champignon de Paris":["g",20,"champignon","champignons","piece"], "Navet":["g",150,"navet","navets","piece"],
+  "Tomate concassée":["g",400,"boîte de 400 g","boîtes de 400 g","pack"], "Lait de coco":["cl",40,"boîte de 40 cl","boîtes de 40 cl","pack"],
+  "Lait de coco light":["cl",40,"boîte de 40 cl","boîtes de 40 cl","pack"], "Pois chiches cuits":["g",265,"boîte de 265 g égouttés","boîtes de 265 g égouttés","pack"],
+  "Haricots rouges cuits":["g",250,"boîte de 250 g égouttés","boîtes de 250 g égouttés","pack"], "Crème fraîche":["cl",20,"pot de 20 cl","pots de 20 cl","pack"],
+  "Crème de soja cuisine":["cl",20,"brique de 20 cl","briques de 20 cl","pack"], "Pâte brisée":["g",230,"rouleau","rouleaux","pack"],
+  "Pâte brisée sans beurre":["g",230,"rouleau","rouleaux","pack"], "Pâte brisée végétale":["g",230,"rouleau","rouleaux","pack"],
+  "Pâte sans gluten":["g",230,"rouleau","rouleaux","pack"], "Pâte sans gluten et sans beurre":["g",230,"rouleau","rouleaux","pack"],
+  "Beurre":["g",15,"c. à soupe","c. à soupe","spoon"], "Margarine végétale":["g",15,"c. à soupe","c. à soupe","spoon"],
+  "Farine":["g",10,"c. à soupe","c. à soupe","spoon"], "Fécule de maïs (maïzena)":["g",10,"c. à soupe","c. à soupe","spoon"],
+  "Huile d'olive":["ml",15,"c. à soupe","c. à soupe","spoon"], "Huile de colza":["ml",15,"c. à soupe","c. à soupe","spoon"],
+  "Concentré de tomate":["g",15,"c. à soupe","c. à soupe","spoon"], "Beurre de cacahuète":["g",15,"c. à soupe","c. à soupe","spoon"],
+  "Pâte d'arachide":["g",15,"c. à soupe","c. à soupe","spoon"], "Levure nutritionnelle (flocons)":["g",5,"c. à soupe","c. à soupe","spoon"],
+  "Curry en poudre":["g",2,"c. à café","c. à café","spoon"], "Poudre de colombo":["g",2,"c. à café","c. à café","spoon"],
+  "Ras el hanout":["g",2,"c. à café","c. à café","spoon"]
+};
+const FRAC = {0.25:"¼", 0.5:"½", 0.75:"¾"};
+function fracText(x){
+  const whole = Math.floor(x), part = Math.round((x - whole) * 4) / 4;
+  if (part === 1) return String(whole + 1);
+  if (!part) return String(whole);
+  return (whole ? whole + " " : "") + FRAC[part];
+}
+function house(name, q, u, buying){
+  const h = HOUSE[name]; if (!h || h[0] !== u) return "";
+  const n = q / h[1];
+  if (buying){
+    if (h[4] === "spoon") return "";
+    const c = Math.max(1, Math.round(n + 0.2));
+    return "≈ " + c + " " + (c >= 2 ? h[3] : h[2]);
+  }
+  if (h[4] === "spoon" && n < 0.375) return "≈ une pincée";
+  const step = n < 3 ? 0.25 : 0.5;
+  const r = Math.max(0.25, Math.round(n / step) * step);
+  return "≈ " + fracText(r) + " " + (r >= 2 ? h[3] : h[2]);
+}
+
+/* ---------- mon carnet : favoris, recettes cuisinées, note, commentaire (sur cet appareil) ---------- */
+let carnet = lsGet("carnet", {}) || {};
+const ce = rid => carnet[rid] || {fav:false, cooked:[], note:0, comment:""};
+function setCe(rid, patch){ carnet = {...carnet, [rid]: {...ce(rid), ...patch}}; lsSet("carnet", carnet); }
+const dateFr = iso => { const [y,m,d] = String(iso).split("-"); return d + "/" + m + "/" + y; };
+const today = () => { const t = new Date(); return t.getFullYear() + "-" + String(t.getMonth()+1).padStart(2,"0") + "-" + String(t.getDate()).padStart(2,"0"); };
+function platRids(k){ return k.startsWith("u:") ? REGIMES.map(r => k + ":" + r) : Object.values(byPlat[k] || {}); }
+const platFav = k => platRids(k).some(rid => ce(rid).fav);
+const platCooked = k => platRids(k).some(rid => ce(rid).cooked.length);
+function carnetBox(rid){
+  const c = ce(rid); const nb = c.cooked.length; const last = nb ? c.cooked[nb - 1] : null;
+  return `<div class="carnet noprint">
+    <div class="bar"><button class="ghost fav" type="button" data-act="fav" aria-pressed="${c.fav}">${c.fav ? "♥ Dans mes favoris" : "♡ Ajouter aux favoris"}</button>
+      <button class="ghost" type="button" data-act="cooked">Je l'ai cuisinée</button></div>
+    <span class="status">${nb ? `Cuisinée ${nb} fois · dernière fois le ${dateFr(last.d)} (${last.n} pers.)` : "Pas encore cuisinée"}${nb ? ` · <button class="linkish" type="button" data-act="uncook">annuler la dernière</button>` : ""}</span>
+    <div class="stars" role="group" aria-label="Ma note">${[1,2,3,4,5].map(i => `<button type="button" data-star="${i}" aria-pressed="${i <= c.note}" aria-label="${i} sur 5">${i <= c.note ? "★" : "☆"}</button>`).join("")}<span class="status">Ma note</span></div>
+    <label class="eyebrow" for="c-comment">Mon commentaire perso</label>
+    <textarea class="field small" id="c-comment" placeholder="Ex. : un peu moins de piment la prochaine fois">${esc(c.comment)}</textarea>
+  </div>`;
+}
+
+/* ---------- partager ou imprimer une recette ---------- */
+const canPrint = () => !hasClaude();
+function recipeText(name, r, n){
+  return name.toUpperCase() + " — " + regLabel(r.r) + "\nPour " + n + " personne" + (n > 1 ? "s" : "") + "\n\nINGRÉDIENTS\n" +
+    r.g.map(([nm,q,u]) => { const hm = house(nm, q*n, u, false); return "- " + nm + " : " + fmt(q*n, u, false) + (hm ? " (" + hm + ")" : ""); }).join("\n") +
+    "\n\nCOMMENT FAIRE\n" + r.i + (r.c ? "\n\n" + r.c : "") + "\n\nVérifie toujours les étiquettes en cas d'allergie.\n© 2026 Djann — Recettes en famille";
+}
+
+/* ---------- planning de la semaine ---------- */
+const DAYS = [["lun","Lundi"],["mar","Mardi"],["mer","Mercredi"],["jeu","Jeudi"],["ven","Vendredi"],["sam","Samedi"],["dim","Dimanche"]];
+const MOMENTS = [["midi","midi"],["soir","soir"]];
+const SLOTS = DAYS.flatMap(([d, D]) => MOMENTS.map(([m, M]) => [d + "-" + m, D + " " + M]));
+const slotLabel = s => (SLOTS.find(x => x[0] === s) || [null, ""])[1];
+const slotIdx = s => { const i = SLOTS.findIndex(x => x[0] === s); return i < 0 ? 99 : i; };
+const sortedMeals = () => store.meals.slice().sort((a, b) => slotIdx(a.slot) - slotIdx(b.slot));
+function slotOptions(current, emptyLabel){
+  return `<option value="">${esc(emptyLabel)}</option>` + SLOTS.map(([v, l]) => `<option value="${v}"${v === current ? " selected" : ""}>${esc(l)}</option>`).join("");
+}
+
 /* ---------- quantités ---------- */
 const nf1 = new Intl.NumberFormat("fr-FR",{maximumFractionDigits:1});
 const nf2 = new Intl.NumberFormat("fr-FR",{maximumFractionDigits:2});
@@ -531,18 +650,19 @@ function mealItems(meal){
 }
 function mealTitle(meal){
   const r = getRec(meal.rid); if (!r) return "Recette supprimée";
-  const p = platInfo(r.p); return (p ? p[1] : "Recette") + " · " + regLabel(r.r) + " · " + meal.n + " pers.";
+  const p = platInfo(r.p); return (meal.slot ? slotLabel(meal.slot) + " · " : "") + (p ? p[1] : "Recette") + " · " + regLabel(r.r) + " · " + meal.n + " pers.";
 }
 function itemRow(i, cid){
   const done = isDone(i.parts);
-  return `<div class="item${done?" done":""}"><input type="checkbox" id="${cid}" data-chk="${esc(i.parts.join("¦"))}" ${done?"checked":""}><label for="${cid}"><span>${esc(i.n)}${state.vue==="recette" ? `<span class="ray">${esc(i.ray)}</span>` : ""}</span><span class="qty">${fmt(i.q,i.u,true)}</span></label></div>`;
+  return `<div class="item${done?" done":""}"><input type="checkbox" id="${cid}" data-chk="${esc(i.parts.join("¦"))}" ${done?"checked":""}><label for="${cid}"><span>${esc(i.n)}${state.vue==="recette" ? `<span class="ray">${esc(i.ray)}</span>` : ""}</span><span class="qty">${fmt(i.q,i.u,true)}${house(i.n,i.q,i.u,true) ? `<span class="hm">${esc(house(i.n,i.q,i.u,true))}</span>` : ""}</span></label></div>`;
 }
 
 /* ---------- rendu ---------- */
 const app = document.getElementById("app");
 const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 function updateChrome(){
-  document.getElementById("tab-plats").setAttribute("aria-current", state.view !== "liste" ? "page" : "false");
+  document.getElementById("tab-plats").setAttribute("aria-current", !["liste","semaine"].includes(state.view) ? "page" : "false");
+  document.getElementById("tab-semaine").setAttribute("aria-current", state.view === "semaine" ? "page" : "false");
   document.getElementById("tab-liste").setAttribute("aria-current", state.view === "liste" ? "page" : "false");
   const b = document.getElementById("badge"); b.textContent = store.meals.length; b.hidden = !store.meals.length;
 }
@@ -552,6 +672,7 @@ function render(){
   updateChrome();
   if (state.view === "plat") return renderPlat();
   if (state.view === "liste") return renderListe();
+  if (state.view === "semaine") return renderSemaine();
   if (state.view === "ajout") return renderAjout();
   renderPlats();
 }
@@ -567,7 +688,7 @@ function catChips(attr, current, withAll){
 
 function platTiles(){
   const q = norm(state.q || "");
-  const list = allPlats().map((p,i) => [p,i]).filter(([p]) => (state.cat === "Tout" || catOf(p) === state.cat) && (!q || norm(p[1] + " " + p[2] + " " + catOf(p)).includes(q)));
+  const list = allPlats().map((p,i) => [p,i]).filter(([p]) => (state.cat === "Tout" || catOf(p) === state.cat) && (state.carnetFilter === "tout" || (state.carnetFilter === "fav" ? platFav(p[0]) : platCooked(p[0]))) && (!q || norm(p[1] + " " + p[2] + " " + catOf(p)).includes(q)));
   const add = `<button class="addtile" type="button" data-act="new"><span class="plus" aria-hidden="true">+</span>Ajouter une recette<small>Colle une recette d'Internet, Claude l'adapte à ton régime</small></button>`;
   if (!list.length) return `<p class="none">${state.q ? `Aucune recette ne correspond à « ${esc(state.q)} »` : `Pas encore de recette dans « ${esc(state.cat)} »`}${state.cat !== "Tout" && state.q ? ` dans « ${esc(state.cat)} »` : ""}. Ajoute la première :</p>` + add;
   return list.map(([[k,name,orig,c1,c2],i]) => {
@@ -583,6 +704,7 @@ function platTiles(){
         <h2>${esc(name)}</h2><span class="orig">${esc(orig)}</span>
         <span class="tag">${has ? esc(regLabel(state.regime)) : "À adapter"}</span>
         ${hits.length ? `<span class="tag bad">Contient : ${esc(algList(hits))}</span>` : ""}
+        ${platFav(k) || platCooked(k) ? `<span class="mine">${platFav(k) ? "♥ Favori" : ""}${platFav(k) && platCooked(k) ? " · " : ""}${platCooked(k) ? "Déjà cuisinée" : ""}</span>` : ""}
       </button>`; }).join("") + add;
 }
 function allergyPanel(){
@@ -603,6 +725,8 @@ function renderPlats(){
     <section class="sect"><span class="eyebrow">Pour qui on cuisine ?</span>${regimeChips()}</section>
     <section class="sect">${allergyPanel()}</section>
     <section class="sect"><span class="eyebrow">Catégorie</span>${catChips("data-cat", state.cat, true)}</section>
+    <section class="sect"><span class="eyebrow">Mon carnet</span><div class="chips" role="group" aria-label="Mon carnet">${[["tout","Toutes"],["fav","♥ Mes favoris"],["cuisinees","Déjà cuisinées"]].map(([v,l]) =>
+      `<button class="chip" type="button" data-cf="${v}" aria-pressed="${state.carnetFilter === v}">${esc(l)}</button>`).join("")}</div></section>
     <section class="sect"><label class="eyebrow" for="q">Chercher une recette</label>
       <input class="search" id="q" type="search" placeholder="Colombo, quiche, Antilles…" value="${esc(state.q || "")}" autocomplete="off"></section>
     <section class="plats" id="grid" aria-label="Plats">${platTiles()}</section>`;
@@ -636,8 +760,9 @@ function renderPlat(){
           ${sampleKnown === "none" ? `<p>${NO_CLAUDE}</p>` : ""}${err}</div>`
       : `<p class="okbox">Aucun de tes allergènes (${esc(algList(state.allergies))}) dans les ingrédients. Vérifie quand même les étiquettes.</p>`;
     body = `
-    <section class="sect">${algBox}</section>
-    <section class="sect">
+    <section class="sect noprint">${algBox}</section>
+    <section class="sect noprint">${carnetBox(rid)}</section>
+    <section class="sect noprint">
       <div class="persons"><span class="lbl">Nombre de personnes</span>
         <button class="step" type="button" data-step="-1" aria-label="Une personne de moins">−</button>
         <output aria-live="polite">${n}</output>
@@ -646,26 +771,35 @@ function renderPlat(){
     </section>
     <section class="sect"><span class="eyebrow">Ingrédients pour ${n} ${n>1?"personnes":"personne"}</span>
       <div class="card">${r.g.map(x => { const [nm,q,u,ray] = x; const bad = ingAlg(x).filter(k => state.allergies.includes(k));
-        return `<div class="ing${bad.length ? " alrg" : ""}"><span>${esc(nm)}<span class="ray">${bad.length ? "Contient : " + esc(algList(bad)) : esc(ray)}</span></span><span class="qty">${fmt(q*n,u,false)}</span></div>`; }).join("")}</div>
+        const hm = house(nm, q*n, u, false);
+        return `<div class="ing${bad.length ? " alrg" : ""}"><span>${esc(nm)}<span class="ray">${bad.length ? "Contient : " + esc(algList(bad)) : esc(ray)}</span></span><span class="qty">${fmt(q*n,u,false)}${hm ? `<span class="hm">${esc(hm)}</span>` : ""}</span></div>`; }).join("")}</div>
       <span class="status">Sel, poivre, huile de cuisson et eau ne sont pas comptés.</span>
     </section>
     <section class="sect"><span class="eyebrow">Comment faire</span>
       <div class="note"><strong>${esc(r.i)}</strong>${r.c ? `<p>${esc(r.c)}</p>` : ""}</div>
     </section>
-    <section class="sect"><button class="cta" type="button" data-add="${esc(rid)}">Ajouter à la liste de courses</button>
+    <section class="sect noprint"><span class="eyebrow">Garder ou partager la recette</span>
+      <div class="bar"><button class="ghost" type="button" data-act="rcopy">Copier la recette</button>
+      ${canPrint() ? `<button class="ghost" type="button" data-act="print">Imprimer ou enregistrer en PDF</button>` : ""}</div>
+      ${state.recipeCopy !== null ? `<label class="status" for="rcopy-box">Sélectionne le texte et copie-le :</label><textarea class="copy" id="rcopy-box" readonly>${esc(state.recipeCopy)}</textarea>` : ""}
+      ${canPrint() ? `<span class="status">Pour un PDF : dans la fenêtre d'impression, choisis « Enregistrer au format PDF ».</span>` : `<span class="status">L'impression en PDF est disponible dans la version en ligne de l'appli.</span>`}</section>
+    <section class="sect noprint"><label class="eyebrow" for="w-slot">Pour quand ?</label>
+      <select class="field" id="w-slot">${slotOptions(state.slot || "", "Pas de jour précis")}</select>
+      <button class="cta" type="button" data-add="${esc(rid)}">Ajouter au menu et aux courses</button>
       <a class="avis" href="${esc(avisLink(name, state.regime))}" target="_blank" rel="noopener">Tu l'as cuisinée ? Donne ton avis</a>
       <span class="status">Ouvre le formulaire d'avis, avec la recette et la version déjà remplies.</span></section>`;
   }
-  const del = custom && canDelete(customs.find(x => "u:" + x.id === k)) ? `<section class="sect"><div class="bar">
+  const del = custom && canDelete(customs.find(x => "u:" + x.id === k)) ? `<section class="sect noprint"><div class="bar">
       ${state.confirmDel ? `<div class="confirm"><span>Supprimer « ${esc(name)} » et toutes ses versions ?</span><button class="ghost danger" type="button" data-act="del-yes">Oui, supprimer</button><button class="ghost" type="button" data-act="del-no">Annuler</button></div>`
         : `<button class="ghost danger" type="button" data-act="del">Supprimer cette recette</button>`}</div></section>` : "";
   app.innerHTML = `
-    <header class="top"><button class="back" type="button" data-go="plats">← Recettes</button><h1>${esc(name)}</h1></header>
+    <header class="top"><button class="back noprint" type="button" data-go="plats">← Recettes</button><h1>${esc(name)}</h1></header>
     <section class="hero" style="--dish:${c1}">${plate(c1,c2,idx)}<div><span class="eyebrow">${esc(cat)} · ${esc(orig)}</span><h2>${esc(regLabel(state.regime))}</h2></div></section>
-    <section class="sect">${regimeChips()}
+    <section class="sect noprint">${regimeChips()}
       ${/Sans Lactose/.test(state.regime) ? `<span class="status">« Sans lactose » ne convient pas à une allergie aux protéines de lait : coche « Lait » dans tes allergies, sur l'accueil.</span>` : ""}</section>
     ${body}${del}`;
 }
+function focusCopy(){ const box = document.getElementById("rcopy-box"); if (box){ box.focus(); box.select(); } }
 function renderAjout(){
   const d = state.draft;
   const err = state.err ? `<p class="err" role="alert">${esc(state.err)}</p>` : "";
@@ -698,7 +832,7 @@ function renderListe(){
   const meals = store.meals.map(m =>
     `<span class="meal">${esc(mealTitle(m))}<button type="button" data-rm="${esc(m.id)}" aria-label="Retirer ce repas">×</button></span>`).join("");
   const groups = state.vue === "recette"
-    ? store.meals.map((m, mi) => { const its = mealItems(m); return its.length ? `<div class="rayon"><h3>${esc(mealTitle(m))}</h3><div class="card">${its.map((i,ix) => itemRow(i, "m" + mi + "-" + ix)).join("")}</div></div>` : ""; }).join("")
+    ? sortedMeals().map((m, mi) => { const its = mealItems(m); return its.length ? `<div class="rayon"><h3>${esc(mealTitle(m))}</h3><div class="card">${its.map((i,ix) => itemRow(i, "m" + mi + "-" + ix)).join("")}</div></div>` : ""; }).join("")
     : RAYONS.map((ray, ri) => {
         const its = items.filter(i => i.ray === ray).sort(sortRay);
         if (!its.length) return "";
@@ -722,8 +856,24 @@ function renderListe(){
     <section class="sect">${groups}</section>`}`;
   const box = document.getElementById("copy-box"); if (box){ box.focus(); box.select(); }
 }
+function renderSemaine(){
+  const meals = sortedMeals();
+  const row = m => `<div class="mrow"><button class="mlink" type="button" data-open="${esc(m.rid)}">${esc(mealTitle({...m, slot:""}))}</button>
+      <select class="mini" data-mslot="${esc(m.id)}" aria-label="Changer le jour">${slotOptions(m.slot || "", "Pas de jour")}</select>
+      <button class="x" type="button" data-rm="${esc(m.id)}" aria-label="Retirer ce repas">×</button></div>`;
+  const days = DAYS.map(([d, D]) => `<div class="day"><h3>${esc(D)}</h3>${MOMENTS.map(([m, M]) => {
+      const slot = d + "-" + m; const here = meals.filter(x => x.slot === slot);
+      return `<div class="slot"><span class="mom">${esc(M)}</span><div class="slotbody">${here.length ? here.map(row).join("")
+        : `<button class="pick" type="button" data-pick="${slot}">+ Choisir une recette</button>`}</div></div>`; }).join("")}</div>`).join("");
+  const loose = meals.filter(x => !x.slot);
+  app.innerHTML = `
+    <header class="top"><h1>Menu de la semaine</h1></header>
+    <section class="sect"><p class="status">Choisis un repas pour chaque jour : tout ce qui est au menu arrive automatiquement dans la liste de courses.</p></section>
+    <section class="sect week">${days}</section>
+    ${loose.length ? `<section class="sect"><span class="eyebrow">Sans jour précis</span><div class="card">${loose.map(row).join("")}</div></section>` : ""}`;
+}
 function listText(){
-  const line = i => "- " + i.n + " : " + fmt(i.q,i.u,true);
+  const line = i => "- " + i.n + " : " + fmt(i.q,i.u,true) + (house(i.n,i.q,i.u,true) ? " (" + house(i.n,i.q,i.u,true) + ")" : "");
   if (state.vue === "recette"){
     return store.meals.map(m => { const its = mealItems(m).filter(i => !isDone(i.parts));
       return its.length ? mealTitle(m).toUpperCase() + "\n" + its.map(line).join("\n") : ""; }).filter(Boolean).join("\n\n");
@@ -735,15 +885,17 @@ function listText(){
 }
 let toastTimer;
 function toast(msg){ const t = document.getElementById("toast"); t.textContent = msg; t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => t.hidden = true, 2600); }
-function go(view){ state.view = view; state.err = null; state.confirmDel = false; state.confirmClear = false; state.copyText = null; render(); scrollTo(0,0); }
+function currentRid(){ const p = platInfo(state.plat); if (!p) return null; return p[0].startsWith("u:") ? p[0] + ":" + state.regime : byPlat[p[0]][state.regime]; }
+function go(view){ state.recipeCopy = null; state.view = view; state.err = null; state.confirmDel = false; state.confirmClear = false; state.copyText = null; render(); scrollTo(0,0); }
 
 /* ---------- actions ---------- */
 document.addEventListener("click", e => {
   const el = e.target.closest("button"); if (!el || el.disabled) return;
   if (el.id === "tab-plats"){ if (!state.busy) go("plats"); return; }
   if (el.id === "tab-liste"){ if (!state.busy) go("liste"); return; }
+  if (el.id === "tab-semaine"){ if (!state.busy) go("semaine"); return; }
   const d = el.dataset;
-  if (d.reg){ state.regime = d.reg; state.err = null; lsSet("regime", d.reg); render(); return; }
+  if (d.reg){ state.recipeCopy = null; state.regime = d.reg; state.err = null; lsSet("regime", d.reg); render(); return; }
   if (d.freg){ state.draft.reg = d.freg; render(); return; }
   if (d.alg){ const a = state.allergies; state.allergies = a.includes(d.alg) ? a.filter(k => k !== d.alg) : [...a, d.alg]; lsSet("allergies", state.allergies); render(); return; }
   if (d.fcat){ state.draft.cat = state.draft.cat === d.fcat ? "" : d.fcat; render(); return; }
@@ -753,17 +905,34 @@ document.addEventListener("click", e => {
   if (d.step){ state.persons = Math.min(12, Math.max(1, state.persons + Number(d.step))); lsSet("persons", state.persons); render(); return; }
   if (d.add){
     const r = getRec(d.add); if (!r) return;
-    store.meals = [...store.meals, {id: newId(), rid: d.add, n: state.persons}];
-    persist(); render();
-    toast("Ajouté : " + platInfo(r.p)[1] + " · " + regLabel(r.r) + " · " + state.persons + " pers.");
+    const slot = state.slot || "";
+    store.meals = [...store.meals, {id: newId(), rid: d.add, n: state.persons, slot}];
+    state.slot = ""; persist(); render();
+    toast("Ajouté" + (slot ? " pour " + slotLabel(slot).toLowerCase() : "") + " : " + platInfo(r.p)[1] + " · " + regLabel(r.r) + " · " + state.persons + " pers.");
     return;
   }
+  if (d.pick){ state.slot = d.pick; go("plats"); toast("Choisis une recette pour " + slotLabel(d.pick).toLowerCase()); return; }
+  if (d.open){ const r = getRec(d.open); if (!r) return; state.plat = r.p; state.regime = r.r; go("plat"); return; }
   if (d.vue){ state.vue = d.vue; lsSet("vue", d.vue); state.copyText = null; render(); return; }
   if (d.rm){
     const checked = {}; for (const k in store.checked) if (!k.startsWith(d.rm + "|")) checked[k] = true;
     store.meals = store.meals.filter(m => m.id !== d.rm); store.checked = checked; persist(); render(); return;
   }
+  if (d.star){ const rid = currentRid(); if (rid){ const v = Number(d.star); setCe(rid, {note: ce(rid).note === v ? 0 : v}); render(); } return; }
+  if (d.cf){ state.carnetFilter = d.cf; render(); return; }
   switch (d.act){
+    case "fav": { const rid = currentRid(); if (rid){ setCe(rid, {fav: !ce(rid).fav}); render(); toast(ce(rid).fav ? "Ajoutée à tes favoris" : "Retirée de tes favoris"); } return; }
+    case "cooked": { const rid = currentRid(); if (rid){ setCe(rid, {cooked: [...ce(rid).cooked, {d: today(), n: state.persons}]}); render(); toast("Notée dans ton carnet : cuisinée aujourd'hui"); } return; }
+    case "uncook": { const rid = currentRid(); if (rid){ setCe(rid, {cooked: ce(rid).cooked.slice(0, -1)}); render(); } return; }
+    case "print": window.print(); return;
+    case "rcopy": {
+      const rid = currentRid(); const r = rid && getRec(rid); if (!r) return;
+      const text = recipeText(platInfo(state.plat)[1], r, state.persons);
+      if (navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(text).then(() => toast("Recette copiée : tu peux la coller où tu veux"), () => { state.recipeCopy = text; render(); focusCopy(); });
+      } else { state.recipeCopy = text; render(); focusCopy(); }
+      return;
+    }
     case "new": state.draft.reg = state.regime; go("ajout"); return;
     case "create": createRecipe(); return;
     case "adapt": adaptRecipe(); return;
@@ -788,11 +957,17 @@ document.addEventListener("click", e => {
 document.addEventListener("input", e => {
   const id = e.target.id;
   if (id === "q"){ state.q = e.target.value; const g = document.getElementById("grid"); if (g) g.innerHTML = platTiles(); return; }
+  if (id === "c-comment"){ const rid = currentRid(); if (rid) setCe(rid, {comment: e.target.value.slice(0, 500)}); return; }
   if (id === "f-nom") state.draft.nom = e.target.value;
   if (id === "f-texte") state.draft.texte = e.target.value;
   if (id === "f-pers") state.draft.pers = e.target.value;
 });
 document.addEventListener("change", e => {
+  if (e.target.id === "w-slot"){ state.slot = e.target.value; return; }
+  if (e.target.dataset && e.target.dataset.mslot){
+    const id = e.target.dataset.mslot, v = e.target.value;
+    store.meals = store.meals.map(m => m.id === id ? {...m, slot: v} : m); persist(); render(); return;
+  }
   if (e.target.id === "hide-alg"){ state.hideAlg = e.target.checked; lsSet("hideAlg", state.hideAlg); render(); return; }
   const k = e.target.dataset && e.target.dataset.chk; if (!k) return;
   const checked = {...store.checked};
